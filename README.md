@@ -1,6 +1,5 @@
 # PS2_SM_MB_MB_DL
-## Taller 2 - Problem Set 2: _`Wars of nations are fought to change maps. But
-wars of poverty are fought to map change`_
+## Taller 2 - Problem Set 2: `Wars of nations are fought to change maps. But wars of poverty are fought to map change`
 
 ### Santiago Melo, Miguel Blanco, María Bernal, Diana Lopera  
 
