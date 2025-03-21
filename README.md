@@ -1,5 +1,5 @@
 # PS2_SM_MB_MB_DL
-## Taller 2 - Problem Set 2: _Wars of nations are fought to change maps. But wars of poverty are fought to map change_
+## Taller 2 - Problem Set 2: Predicting Poverty
 
 ### Santiago Melo, Miguel Blanco, María Bernal, Diana Lopera  
 
@@ -39,7 +39,7 @@ XX
 
 ---
 
-📌 **Este repositorio corresponde a un ejercicio de análisis y predicción de XX, aplicando técnicas aprendidas durante la clase de Big Data y Machine Learning de la Universidad de los Andes.**  
+📌 **Este repositorio corresponde a un ejercicio de análisis y predicción de la pobreza, aplicando técnicas aprendidas durante la clase de Big Data y Machine Learning de la Universidad de los Andes.**  
 
 
 
