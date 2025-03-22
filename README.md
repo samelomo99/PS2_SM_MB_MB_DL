@@ -5,7 +5,7 @@
 
 ---
 
-## 📂 Estructura del repositorio PS1_SM_MB_MB_DL  
+## 📂 Estructura del repositorio PS2_SM_MB_MB_DL  
 
 El repositorio está organizado en las siguientes carpetas:  
 
