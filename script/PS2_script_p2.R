@@ -9,14 +9,19 @@
 # ----------------------LIBRERIAS----------------------------------- # ----
 
 
-
 # ----------------------DATOS--------------------------------------- # ----
 
-# Usamos la base de datos scrapeada y subida al repositorio en GitHub
 
-datos <- read_csv(
-  "https://raw.githubusercontent.com/samelomo99/PS1_SM_MB_MB_DL/main/stores/GEIH_2018_sample_all.csv"
-)
+# Definir rutas
+
+setwd("D:/OneDrive - CGIAR/Pictures/Diplomado_BigData/Repositorios/PS2_SM_MB_MB_DL")
+repo_path <- "D:/OneDrive - CGIAR/Pictures/Diplomado_BigData/Repositorios/PS2_SM_MB_MB_DL"
+datos_path <- file.path(repo_path, "datos")
+
+# Crear carpeta "datos" si no existe
+if (!dir.exists(datos_path)) {
+  dir.create(datos_path, recursive = TRUE)
+}
 
 
 # ----------------------DESCRIPTIVAS-------------------------------- # ----
