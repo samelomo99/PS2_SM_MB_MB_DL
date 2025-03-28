@@ -54,7 +54,7 @@ unlink(temp_test_personas)
 
 # ----------------------DESCRIPTIVAS-------------------------------- # ----
 
-
+# ----------------INSPECCIÓN DE LOS DATOS------------------ # ----
 
 # Crear una lista con los datasets para facilitar el análisis
 datasets <- list(
@@ -117,7 +117,7 @@ for(nombre in names(datasets)) {
 
 
 
-
+# ----------------MANEJO DE DATOS Y CREACIÓN DE VARIABLES RELEVANTAS------------------ # ----
 
 
 
