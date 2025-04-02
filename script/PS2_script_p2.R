@@ -52,6 +52,131 @@ unlink(temp_test_hogares)
 unlink(temp_test_personas)
 
 
+
+#---------------------Manipulacion de los datos -------------------------------------
+
+#### Uniendo a nivel individuo####################
+train_completo_personas <- left_join(train_personas, train_hogares, by = "id")
+head(train_completo_personas)
+
+#\a nivel hogar\#
+
+
+
+# Crear resumen por familia
+resumen_familias <- train_personas %>%
+  group_by(id) %>%
+  summarise(
+    # Sexo, salud y pensión del jefe del hogar
+    sexo_jefe = P6020[P6050 == 1][1],
+    salud_jefe = P6090[P6050 == 1][1],
+    pension_jefe = P6920[P6050 == 1][1],
+    oc_jefe = Oc[P6050 == 1][1],
+    des_jefe = Des[P6050 == 1][1],
+    ina_jefe = Ina[P6050 == 1][1],
+    
+    # Edad promedio del hogar
+    edad_promedio = mean(P6040, na.rm = TRUE),
+    
+    # Moda del estrato
+    estrato_moda = names(sort(table(Estrato1), decreasing = TRUE))[1],
+    
+    # Pet: al menos un miembro con Pet == 1
+    hogar_pet = as.integer(any(Pet == 1)),
+    
+    # Ingresos (sumados individualmente)
+    ingreso_impa = sum(Impa, na.rm = TRUE),
+    ingreso_isa = sum(Isa, na.rm = TRUE),
+    ingreso_ie = sum(Ie, na.rm = TRUE),
+    ingreso_imdi = sum(Imdi, na.rm = TRUE),
+    ingreso_iof1es = sum(Iof1es, na.rm = TRUE),
+    ingreso_iof2es = sum(Iof2es, na.rm = TRUE),
+    ingreso_iof3hes = sum(Iof3hes, na.rm = TRUE),
+    ingreso_iof3ies = sum(Iof3ies, na.rm = TRUE),
+    ingreso_p6545s1 = sum(P6545s1, na.rm = TRUE),
+    ingreso_p6610s1 = sum(P6610s1, na.rm = TRUE),
+    ingreso_p6620 = sum(P6620, na.rm = TRUE),
+    ingreso_p7510s1 = sum(P7510s1, na.rm = TRUE),
+    ingreso_p7510s2 = sum(P7510s2, na.rm = TRUE),
+    ingreso_p7510s3 = sum(P7510s3, na.rm = TRUE)
+  ) %>%
+  ungroup()
+
+# Unir la base de hogares con el resumen de personas a nivel hogar
+train_completo_hogares <- left_join(train_hogares, resumen_familias, by = "id")
+
+glimpse(train_completo_hogares)  # Estructura general
+head(train_completo_hogares)     # Primeras filas
+summary(train_completo_hogares)  # Estadísticas básicas
+
+# Finalmente guardamos
+# Guardar en formato R
+saveRDS(train_completo_personas, file = "train_completo_personas.rds")
+
+# Guardar en formato CSV
+write.csv(train_completo_personas, file = "train_completo_personas.csv", row.names = FALSE)
+
+# Guardar en formato R
+saveRDS(train_completo_hogares, file = "train_completo_hogares.rds")
+
+# Guardar en formato CSV
+write.csv(train_completo_hogares, file = "train_completo_hogares.csv", row.names = FALSE)
+
+
+
+########################Para las variables de testeo #####################
+
+#importar las bases de datos 
+
+test_hogares <- read.csv("C:/Users/Miguel Blanco/OneDrive/Materias Uniandes/2025 10/Big Data y Maching Learning para Economia Aplicada/Nueva carpeta/Taller 2/Bases de Datos/test_hogares.csv", header=TRUE, row.names=NULL)
+View(test_hogares)
+colnames(test_hogares)
+
+test_personas <- read.csv("C:/Users/Miguel Blanco/OneDrive/Materias Uniandes/2025 10/Big Data y Maching Learning para Economia Aplicada/Nueva carpeta/Taller 2/Bases de Datos/test_personas.csv", header=TRUE, row.names=NULL)
+View(test_personas)
+colnames(test_personas)
+
+
+#### Uniendo a nivel individuo####################
+test_completo_personas <- left_join(test_personas, test_hogares, by = "id")
+head(test_completo_personas)
+
+#\a nivel hogar\#
+
+# Crear resumen por familia
+resumen_familias <- test_personas %>%
+  group_by(id) %>%
+  summarise(
+    # Sexo, salud y pensión del jefe del hogar
+    sexo_jefe = P6020[P6050 == 1][1],
+    salud_jefe = P6090[P6050 == 1][1],
+    pension_jefe = P6920[P6050 == 1][1],
+    oc_jefe = Oc[P6050 == 1][1],
+    des_jefe = Des[P6050 == 1][1],
+    ina_jefe = Ina[P6050 == 1][1],
+    
+    # Edad promedio del hogar
+    edad_promedio = mean(P6040, na.rm = TRUE),
+    
+    # Pet: al menos un miembro con Pet == 1
+    hogar_pet = as.integer(any(Pet == 1)),
+    
+    # Ingresos (sumados individualmente)
+    ingreso_p6620 = sum(P6620, na.rm = TRUE),
+    ingreso_p7510s1 = sum(P7510s1, na.rm = TRUE),
+    ingreso_p7510s2 = sum(P7510s2, na.rm = TRUE),
+    ingreso_p7510s3 = sum(P7510s3, na.rm = TRUE)
+  ) %>%
+  ungroup()
+
+# Unir la base de hogares con el resumen de personas a nivel hogar
+test_completo_hogares <- left_join(test_hogares, resumen_familias, by = "id")
+
+glimpse(test_completo_hogares)  # Estructura general
+head(test_completo_hogares)     # Primeras filas
+summary(test_completo_hogares)  # Estadísticas básicas
+
+
 # ----------------------DESCRIPTIVAS-------------------------------- # ----
 
 # ----------------INSPECCIÓN DE LOS DATOS------------------ # ----
