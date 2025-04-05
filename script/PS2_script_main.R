@@ -63,8 +63,7 @@ test <- read_csv(
   )
 test <- test %>% dplyr::select(id, P5010, P5090, Nper, Depto, P6040_prom, 
                                  P6050_jefe, P6210_moda, sexo_jefe, salud_jefe, 
-                                 edad_jefe, oc_jefe, t_dependencia) %>% 
-  filter(!is.na(salud_jefe), !is.na(oc_jefe), !is.na(t_dependencia))
+                                 edad_jefe, oc_jefe, t_dependencia)
 
 
 # ---------- DESCRIPCIÓN DATOS ---------- # ----
@@ -163,6 +162,24 @@ predictSample <- test   %>%
 
 head(predictSample)
 
+#- Transformamos variable pobre para que cumpla con la especificación de la competencia
+predictSample <- predictSample %>% 
+  mutate(pobre=ifelse(pobre_lab=="Yes",1,0)) %>% 
+  dplyr::select(id,pobre)
+head(predictSample)
+
+#- Formato específico Kaggle 
+lambda_str <- gsub(
+  "\\.", "_", 
+  as.character(round(model_en1$bestTune$lambda, 4)))
+alpha_str <- gsub("\\.", "_", as.character(model_en1$bestTune$alpha))
+
+name<- paste0(
+  "EN_lambda_", lambda_str,
+  "_alpha_" , alpha_str, 
+  ".csv") 
+
+write.csv(predictSample,name, row.names = FALSE)
 
 # RANDOM FOREST ----
 
