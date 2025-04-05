@@ -38,7 +38,8 @@ pacman::p_load(
   knitr,          # kable() para generar tablas en LaTeX
   xtable,
   tidyr,
-  gmodels
+  gmodels,
+  glmnet
 )
 
 # ---------- BASE DE DATOS ---------- # ----
@@ -46,9 +47,25 @@ pacman::p_load(
 train <- read_csv(
   "https://raw.githubusercontent.com/samelomo99/PS2_SM_MB_MB_DL/refs/heads/main/stores/train_completo_hogares.csv"
   )
+
+#- Quito pension_jefe, y dropeo los miss de salud_jefe, oc_jefe y t_dependencia
+train <- train %>% 
+  mutate(Pobre = factor(Pobre, levels = c(0, 1), labels = c("No", "Yes"))) %>% 
+  dplyr::select(P5010, P5090, Nper, Depto, Pobre, P6040_prom, 
+                P6050_jefe, P6210_moda, sexo_jefe, salud_jefe, 
+                edad_jefe, oc_jefe, t_dependencia) %>% 
+  filter(!is.na(salud_jefe), !is.na(oc_jefe), !is.na(t_dependencia))
+
+skim(train)
+
 test <- read_csv(
   "https://raw.githubusercontent.com/samelomo99/PS2_SM_MB_MB_DL/refs/heads/main/stores/test_completo_hogares.csv"
   )
+test <- test %>% dplyr::select(id, P5010, P5090, Nper, Depto, P6040_prom, 
+                                 P6050_jefe, P6210_moda, sexo_jefe, salud_jefe, 
+                                 edad_jefe, oc_jefe, t_dependencia) %>% 
+  filter(!is.na(salud_jefe), !is.na(oc_jefe), !is.na(t_dependencia))
+
 
 # ---------- DESCRIPCIÓN DATOS ---------- # ----
 
@@ -57,10 +74,8 @@ test <- read_csv(
 
 #- Crear una lista con los datasets para facilitar el análisis
 datasets <- list(
-  "train_hogares" = train_hogares,
-  "train_personas" = train_personas,
-  "test_hogares" = test_hogares,
-  "test_personas" = test_personas
+  "train_hogares" = train,
+  "test_hogares" = test
 )
 
 # Función para explorar cada dataset
@@ -116,6 +131,40 @@ for(nombre in names(datasets)) {
 
 
 # ---------- MODELOS ---------- # ----
+
+# OLS ----
+
+# ELASTIC NET ----
+
+set.seed(10101)
+ctrl <- trainControl(method = "cv",
+                    number = 5,
+                    classProbs = TRUE,
+                    savePredictions = T)
+
+# Usando todas las variables del data frame como predictoras
+model_en1 <- train(Pobre~.,
+  data = train,
+  metric = "Accuracy",
+  method = "glmnet",
+  trControl = ctrl,
+  tuneGrid = expand.grid(
+    alpha = seq(0,1,by=.2), #- se prueban valores de alpha desde 0 a 1 en pasos de 0,2 
+    lambda = 10^seq(10, -2, length = 10) #- parámetro de penalización
+  )
+)
+
+model_en1
+
+#- Hacemos la predicción
+predictSample <- test   %>% 
+  mutate(pobre_lab = predict(model_en1, newdata = test, type = "raw")    ## predicted class labels
+  )  %>% dplyr::select(id,pobre_lab)
+
+head(predictSample)
+
+
+# RANDOM FOREST ----
 
 
 
