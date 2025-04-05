@@ -61,10 +61,24 @@ skim(train)
 test <- read_csv(
   "https://raw.githubusercontent.com/samelomo99/PS2_SM_MB_MB_DL/refs/heads/main/stores/test_completo_hogares.csv"
   )
-test <- test %>% dplyr::select(id, P5010, P5090, Nper, Depto, P6040_prom, 
-                                 P6050_jefe, P6210_moda, sexo_jefe, salud_jefe, 
-                                 edad_jefe, oc_jefe, t_dependencia)
 
+# Cambiamos los NA
+media_salud <- mean(test$salud_jefe, na.rm = TRUE)
+media_oc <- mean(test$oc_jefe, na.rm = TRUE)
+media_dependencia <- mean(test$t_dependencia, na.rm = TRUE)
+
+# Reemplazar los NA
+test <- test %>%
+  dplyr::select(id, P5010, P5090, Nper, Depto, P6040_prom, 
+                P6050_jefe, P6210_moda, sexo_jefe, salud_jefe, 
+                edad_jefe, oc_jefe, t_dependencia) %>%
+  mutate(
+    salud_jefe = ifelse(is.na(salud_jefe), media_salud, salud_jefe),
+    oc_jefe = ifelse(is.na(oc_jefe), media_oc, oc_jefe),
+    t_dependencia = ifelse(is.na(t_dependencia), media_dependencia, t_dependencia)
+  )
+
+skim(test)
 
 # ---------- DESCRIPCIÓN DATOS ---------- # ----
 
@@ -135,6 +149,7 @@ for(nombre in names(datasets)) {
 
 # ELASTIC NET ----
 
+# Modelo 1 ----
 set.seed(10101)
 ctrl <- trainControl(method = "cv",
                     number = 5,
@@ -180,6 +195,58 @@ name<- paste0(
   ".csv") 
 
 write.csv(predictSample,name, row.names = FALSE)
+
+# Modelo 2 ----
+set.seed(10101)
+
+#- Estabilizamos la validación cruzada
+ctrl <- trainControl(method = "cv",
+                     number = 5,
+                     classProbs = TRUE,
+                     savePredictions = T)
+
+#- Seleccionamos las variables más relevantes, dejamos por fueraDepto, P5090, 
+#- estrato_moda, ni P6210_moda porque pueden tener correlaciones altas con otras variables, o ser redundantes en presencia de ingreso y ocupación
+model_en2 <- train(
+  Pobre ~ P5010 + Nper + P6040_prom + sexo_jefe + salud_jefe + oc_jefe + t_dependencia,
+  data = train,
+  metric = "Accuracy",
+  method = "glmnet",
+  trControl = ctrl,
+  tuneGrid = expand.grid(
+    alpha = seq(0, 1, by = 0.2),
+    lambda = 10^seq(10, -2, length = 10)
+  )
+)
+
+model_en2
+
+#- Hacemos la predicción
+predictSample_en2 <- test   %>% 
+  mutate(pobre_lab = predict(model_en2, newdata = test, type = "raw")    ## predicted class labels
+  )  %>% dplyr::select(id,pobre_lab)
+
+head(predictSample_en2)
+
+#- Transformamos variable pobre para que cumpla con la especificación de la competencia
+predictSample_en2 <- predictSample_en2 %>% 
+  mutate(pobre=ifelse(pobre_lab=="Yes",1,0)) %>% 
+  dplyr::select(id,pobre)
+head(predictSample_en2)
+
+#- Formato específico Kaggle 
+lambda_str <- gsub(
+  "\\.", "_", 
+  as.character(round(model_en2$bestTune$lambda, 4)))
+alpha_str <- gsub("\\.", "_", as.character(model_en2$bestTune$alpha))
+
+name<- paste0(
+  "EN2_lambda_", lambda_str,
+  "_alpha_" , alpha_str, 
+  ".csv") 
+
+write.csv(predictSample_en2,name, row.names = FALSE)
+
 
 # RANDOM FOREST ----
 
