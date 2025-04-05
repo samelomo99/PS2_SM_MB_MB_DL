@@ -106,6 +106,7 @@ resumen_familias_train <- train_completo_personas %>%
     pension_jefe = P6920[P6050 == 1][1],
     edad_jefe = P6040[P6050 == 1][1],
     oc_jefe = oc_total[P6050 == 1][1],
+    ocupacion_jefe = P6430[P6050 == 1][1],
     
     # Edad promedio del hogar
     edad_promedio = mean(P6040, na.rm = TRUE),
@@ -133,6 +134,48 @@ resumen_familias_train <- train_completo_personas %>%
     ingreso_p7510s3 = sum(P7510s3, na.rm = TRUE)
   ) %>%
   ungroup()
+
+## Cálculo de la variable 'num_age_educ' a nivel individual
+train_completo_personas <- train_completo_personas %>%
+  mutate(num_age_educ = case_when(
+    P6210 == 1 ~ 0,                           # Ninguno: 0 años
+    P6210 == 2 ~ as.numeric(P6210s1),           # Preescolar: se toma P6210s1
+    P6210 == 3 ~ as.numeric(P6210s1),           # Básica primaria: se toma P6210s1
+    P6210 == 4 ~ as.numeric(P6210s1),           # Básica secundaria: se toma P6210s1
+    P6210 == 5 ~ as.numeric(P6210s1),           # Media: se toma P6210s1
+    P6210 == 6 ~ 13 + as.numeric(P6210s1),      # Superior: 13 años (básica y media) + años aprobados en superior
+    P6210 == 9 ~ NA_real_,                      # No sabe, no informa: NA
+    TRUE ~ NA_real_
+  ))
+
+# Estadística descriptiva de años de educacion  'num_age_educ'
+summary(train_completo_personas$num_age_educ)
+# Contar la cantidad de missing
+sum(is.na(train_completo_personas$num_age_educ))
+
+## Cálculo del clima educativo del hogar
+
+# Se calcula como el promedio de 'num_age_educ' de las personas adultas (edad >= 18) por hogar
+clima_edu <- train_completo_personas %>%
+  filter(P6040 >= 18) %>%   # Solo personas adultas
+  group_by(id) %>%
+  summarise(clima_eduactivo = mean(num_age_educ, na.rm = TRUE)) %>%
+  ungroup()
+
+## Cálculo de los años de educación del jefe del hogar
+# Se extrae 'num_age_educ' del jefe (P6050 == 1)
+edu_jefe <- train_completo_personas %>%
+  filter(P6050 == 1) %>%
+  group_by(id) %>%
+  summarise(edu_jefe = first(num_age_educ)) %>%
+  ungroup()
+
+## Unir los resúmenes al nivel hogar
+
+# Se unen 'clima_eduactivo' y 'edu_jefe' al resumen general por hogar
+resumen_familias_train <- resumen_familias_train %>%
+  left_join(clima_edu, by = "id") %>%
+  left_join(edu_jefe, by = "id")
 
 #- Unimos la base de hogares con el resumen de personas a nivel hogar
 train_completo_hogares <- left_join(train_hogares, resumen_familias_train, by = "id")
@@ -202,6 +245,7 @@ resumen_familias_test <- test_completo_personas %>%
     pension_jefe = P6920[P6050 == 1][1],
     edad_jefe = P6040[P6050 == 1][1],
     oc_jefe = oc_total[P6050 == 1][1],
+    ocupacion_jefe = P6430[P6050 == 1][1],
     
     # Edad promedio del hogar
     edad_promedio = mean(P6040, na.rm = TRUE),
@@ -219,6 +263,49 @@ resumen_familias_test <- test_completo_personas %>%
     ingreso_p7510s3 = sum(P7510s3, na.rm = TRUE)
   ) %>%
   ungroup()
+
+## Cálculo de la variable 'num_age_educ' a nivel individual
+train_completo_personas <- train_completo_personas %>%
+  mutate(num_age_educ = case_when(
+    P6210 == 1 ~ 0,                           # Ninguno: 0 años
+    P6210 == 2 ~ as.numeric(P6210s1),           # Preescolar: se toma P6210s1
+    P6210 == 3 ~ as.numeric(P6210s1),           # Básica primaria: se toma P6210s1
+    P6210 == 4 ~ as.numeric(P6210s1),           # Básica secundaria: se toma P6210s1
+    P6210 == 5 ~ as.numeric(P6210s1),           # Media: se toma P6210s1
+    P6210 == 6 ~ 13 + as.numeric(P6210s1),      # Superior: 13 años (básica y media) + años aprobados en superior
+    P6210 == 9 ~ NA_real_,                      # No sabe, no informa: NA
+    TRUE ~ NA_real_
+  ))
+
+# Estadística descriptiva de años de educacion  'num_age_educ'
+summary(train_completo_personas$num_age_educ)
+# Contar la cantidad de missing
+sum(is.na(train_completo_personas$num_age_educ))
+
+## Cálculo del clima educativo del hogar
+
+# Se calcula como el promedio de 'num_age_educ' de las personas adultas (edad >= 18) por hogar
+clima_edu <- train_completo_personas %>%
+  filter(P6040 >= 18) %>%   # Solo personas adultas
+  group_by(id) %>%
+  summarise(clima_eduactivo = mean(num_age_educ, na.rm = TRUE)) %>%
+  ungroup()
+
+## Cálculo de los años de educación del jefe del hogar
+# Se extrae 'num_age_educ' del jefe (P6050 == 1)
+edu_jefe <- train_completo_personas %>%
+  filter(P6050 == 1) %>%
+  group_by(id) %>%
+  summarise(edu_jefe = first(num_age_educ)) %>%
+  ungroup()
+
+## Unir los resúmenes al nivel hogar
+
+# Se unen 'clima_eduactivo' y 'edu_jefe' al resumen general por hogar
+resumen_familias_test <- resumen_familias_test %>%
+  left_join(clima_edu, by = "id") %>%
+  left_join(edu_jefe, by = "id")
+
 
 #- Unimos la base de hogares con el resumen de personas a nivel hogar
 test_completo_hogares <- left_join(test_hogares, resumen_familias_test, by = "id")
