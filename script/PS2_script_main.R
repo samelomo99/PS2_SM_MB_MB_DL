@@ -63,8 +63,8 @@ test <- read_csv(
   )
 
 # Cambiamos los NA
-media_salud <- mean(test$salud_jefe, na.rm = TRUE)
-media_oc <- mean(test$oc_jefe, na.rm = TRUE)
+median_salud <- median(test$salud_jefe, na.rm = TRUE)
+median_oc <- median(test$oc_jefe, na.rm = TRUE)
 media_dependencia <- mean(test$t_dependencia, na.rm = TRUE)
 
 # Reemplazar los NA
@@ -73,8 +73,8 @@ test <- test %>%
                 P6050_jefe, P6210_moda, sexo_jefe, salud_jefe, 
                 edad_jefe, oc_jefe, t_dependencia) %>%
   mutate(
-    salud_jefe = ifelse(is.na(salud_jefe), media_salud, salud_jefe),
-    oc_jefe = ifelse(is.na(oc_jefe), media_oc, oc_jefe),
+    salud_jefe = ifelse(is.na(salud_jefe), median_salud, salud_jefe),
+    oc_jefe = ifelse(is.na(oc_jefe), median_oc, oc_jefe),
     t_dependencia = ifelse(is.na(t_dependencia), media_dependencia, t_dependencia)
   )
 
