@@ -176,15 +176,9 @@ predictSample <- predictSample %>%
 head(predictSample)
 
 # Formato específico Kaggle 
-lambda_str <- gsub(
-  "\\.", "_", 
-  as.character(round(model_ols1$bestTune$lambda, 4)))
-alpha_str <- gsub("\\.", "_", as.character(model_ols1$bestTune$alpha))
 
 name<- paste0(
-  "OLS_lambda_", lambda_str,
-  "_alpha_" , alpha_str, 
-  ".csv") 
+  "OLS.csv") #Dado que el modelo no tiene hiperparametros no es necesario usar algo mas sofisticado
 
 write.csv(predictSample,name, row.names = FALSE)
 # ELASTIC NET ----
