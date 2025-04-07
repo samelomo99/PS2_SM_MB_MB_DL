@@ -8,6 +8,8 @@
 
 # ---------- LIBRERÍAS ---------- # ----
 
+
+
 if (!require("pacman")) install.packages("pacman")
 library(pacman)
 
@@ -49,12 +51,20 @@ train <- read_csv(
   )
 
 #- Quito pension_jefe, y dropeo los miss de salud_jefe, oc_jefe y t_dependencia
+#- P6040_prom (promedio edad del hogar)
+#- P6100_
 train <- train %>% 
   mutate(Pobre = factor(Pobre, levels = c(0, 1), labels = c("No", "Yes"))) %>% 
   dplyr::select(P5010, P5090, Nper, Depto, Pobre, P6040_prom, 
-                P6050_jefe, P6210_moda, sexo_jefe, salud_jefe, 
+                P6210_moda, nmujeres, nmenores, maxEducLevel, 
+                n_sin_educacion, H_Head_mujer, H_Head_Educ_level,
                 edad_jefe, oc_jefe, t_dependencia) %>% 
-  filter(!is.na(salud_jefe), !is.na(oc_jefe), !is.na(t_dependencia))
+  mutate(
+    inter1 = Depto * maxEducLevel,
+    inter2 = nmujeres * as.numeric(H_Head_mujer),
+    inter3 = edad_jefe * H_Head_Educ_level
+  ) %>% 
+  filter(!is.na(oc_jefe), !is.na(t_dependencia))
 
 skim(train)
 
@@ -63,19 +73,21 @@ test <- read_csv(
   )
 
 # Cambiamos los NA
-median_salud <- median(test$salud_jefe, na.rm = TRUE)
-median_oc <- median(test$oc_jefe, na.rm = TRUE)
+median_oc <- mean(test$oc_jefe, na.rm = TRUE)
 media_dependencia <- mean(test$t_dependencia, na.rm = TRUE)
 
 # Reemplazar los NA
 test <- test %>%
   dplyr::select(id, P5010, P5090, Nper, Depto, P6040_prom, 
-                P6050_jefe, P6210_moda, sexo_jefe, salud_jefe, 
+                P6210_moda, nmujeres, nmenores, maxEducLevel, 
+                n_sin_educacion, H_Head_mujer, H_Head_Educ_level,
                 edad_jefe, oc_jefe, t_dependencia) %>%
   mutate(
-    salud_jefe = ifelse(is.na(salud_jefe), median_salud, salud_jefe),
     oc_jefe = ifelse(is.na(oc_jefe), median_oc, oc_jefe),
-    t_dependencia = ifelse(is.na(t_dependencia), media_dependencia, t_dependencia)
+    t_dependencia = ifelse(is.na(t_dependencia), media_dependencia, t_dependencia),
+    inter1 = Depto * maxEducLevel,
+    inter2 = nmujeres * as.numeric(H_Head_mujer),
+    inter3 = edad_jefe * H_Head_Educ_level
   )
 
 skim(test)
@@ -150,7 +162,6 @@ for(nombre in names(datasets)) {
 # ELASTIC NET ----
 
 # Modelo 1 ----
-set.seed(10101)
 ctrl <- trainControl(method = "cv",
                     number = 5,
                     classProbs = TRUE,
@@ -197,27 +208,33 @@ name<- paste0(
 write.csv(predictSample,name, row.names = FALSE)
 
 # Modelo 2 ----
-set.seed(10101)
+#- Este modelo incluye variables con interacciones, 
+#- control de entrenamiento mejorado (repeatedcv)
+#- además, se puede pensar que la base está desbalanceada,
+#- por lo que usamos ROC como métrica y no accuracy.
 
-#- Estabilizamos la validación cruzada
-ctrl <- trainControl(method = "cv",
+ctrl <- trainControl(method = "repeatedcv",
                      number = 5,
+                     repeats = 1,
                      classProbs = TRUE,
-                     savePredictions = T)
+                     summaryFunction = twoClassSummary,
+                     savePredictions = TRUE)
 
-#- Seleccionamos las variables más relevantes, dejamos por fueraDepto, P5090, 
-#- estrato_moda, ni P6210_moda porque pueden tener correlaciones altas con otras variables, o ser redundantes en presencia de ingreso y ocupación
-model_en2 <- train(
-  Pobre ~ P5010 + Nper + P6040_prom + sexo_jefe + salud_jefe + oc_jefe + t_dependencia,
-  data = train,
-  metric = "Accuracy",
-  method = "glmnet",
-  trControl = ctrl,
-  tuneGrid = expand.grid(
-    alpha = seq(0, 1, by = 0.2),
-    lambda = 10^seq(10, -2, length = 10)
-  )
+# Modelo Elastic Net mejorado
+model_en2 <- train(Pobre ~ .,
+                   data = train,
+                   method = "glmnet",
+                   metric = "ROC",
+                   preProcess = c("center", "scale"),
+                   trControl = ctrl,
+                   tuneGrid = expand.grid(
+                     alpha = seq(0, 1, by = 0.2),
+                     lambda = 10^seq(10, -2, length = 20)
+                   )
 )
+
+#- El preprocess permite reconocer importancia de las variables, en este caso
+#- H_Head_ocupado no varía en el conjunto de datos, no es importante, la eliminamos
 
 model_en2
 
@@ -241,12 +258,11 @@ lambda_str <- gsub(
 alpha_str <- gsub("\\.", "_", as.character(model_en2$bestTune$alpha))
 
 name<- paste0(
-  "EN2_lambda_", lambda_str,
+  "EN_V2_lambda_", lambda_str,
   "_alpha_" , alpha_str, 
   ".csv") 
 
 write.csv(predictSample_en2,name, row.names = FALSE)
-
 
 # RANDOM FOREST ----
 

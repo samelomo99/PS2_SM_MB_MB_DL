@@ -227,7 +227,7 @@ saveRDS(train_completo_hogares, file = "train_completo_hogares.rds")
 write.csv(train_completo_hogares, file = "train_completo_hogares.csv", row.names = FALSE)
 
 
-# ----- TEST DATA ----- #
+# ----- TEST DATA ----- # ----
 
 ## Uniendo a nivel individuo
 
@@ -270,8 +270,8 @@ resumen_familias_test <- test_completo_personas %>%
     P6020_moda = names(sort(table(P6020), decreasing = TRUE))[1],  # Moda del género
     P6040_prom = mean(P6040, na.rm = TRUE),  # Promedio de edad del hogar
     P6050_jefe = sum(P6050 == 1, na.rm = TRUE),  # Cuántos jefes hay (debería ser 1)
-    P6100_moda = names(sort(table(P6100), decreasing = TRUE))[1],
-    P6210_moda = names(sort(table(P6210), decreasing = TRUE))[1],
+    P6100_moda = names(sort(table(P6100), decreasing = TRUE))[1], #Régimen de salud
+    P6210_moda = names(sort(table(P6210), decreasing = TRUE))[1], #Nivel educativo más alto
     #oficio_moda = names(sort(table(oficio), decreasing = TRUE))[1],
     
     # Sexo, salud y pensión del jefe del hogar
