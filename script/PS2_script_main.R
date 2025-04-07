@@ -158,7 +158,41 @@ for(nombre in names(datasets)) {
 # ---------- MODELOS ---------- # ----
 
 # OLS ----
+#Montamos la validacion cruzada
+set.seed(10101)
+ctrl <- trainControl(method = "cv",
+                     number = 5,
+                     classProbs = TRUE,
+                     savePredictions = T)
 
+#Usamos un modelo con todas las varibles
+
+model_ols1 <- train(Pobre~.,
+                    data = train,
+                    metric = "Accuracy",
+                    method = "glm",
+                    trControl = ctrl) 
+
+model_ols1
+#Haciendo la prediccion 
+predictSample <- test   %>% 
+  mutate(pobre_lab = predict(model_ols1, newdata = test, type = "raw")    ## predicted class labels
+  )  %>% dplyr::select(id,pobre_lab)
+
+head(predictSample)
+
+# Transformamos variable pobre para que cumpla con la especificación de la competencia
+predictSample <- predictSample %>% 
+  mutate(pobre=ifelse(pobre_lab=="Yes",1,0)) %>% 
+  dplyr::select(id,pobre)
+head(predictSample)
+
+# Formato específico Kaggle 
+
+name<- paste0(
+  "OLS.csv") #Dado que el modelo no tiene hiperparametros no es necesario usar algo mas sofisticado
+
+write.csv(predictSample,name, row.names = FALSE)
 # ELASTIC NET ----
 
 # Modelo 1 ----
