@@ -196,6 +196,7 @@ write.csv(predictSample,name, row.names = FALSE)
 # ELASTIC NET ----
 
 # Modelo 1 ----
+set.seed(10101)
 ctrl <- trainControl(method = "cv",
                     number = 5,
                     classProbs = TRUE,
@@ -249,7 +250,7 @@ write.csv(predictSample,name, row.names = FALSE)
 
 ctrl <- trainControl(method = "repeatedcv",
                      number = 5,
-                     repeats = 1,
+                     repeats = 2,
                      classProbs = TRUE,
                      summaryFunction = twoClassSummary,
                      savePredictions = TRUE)
@@ -262,7 +263,7 @@ model_en2 <- train(Pobre ~ .,
                    preProcess = c("center", "scale"),
                    trControl = ctrl,
                    tuneGrid = expand.grid(
-                     alpha = seq(0, 1, by = 0.2),
+                     alpha = seq(0, 1, by = 0.4),
                      lambda = 10^seq(10, -2, length = 20)
                    )
 )
@@ -292,7 +293,7 @@ lambda_str <- gsub(
 alpha_str <- gsub("\\.", "_", as.character(model_en2$bestTune$alpha))
 
 name<- paste0(
-  "EN_V2_lambda_", lambda_str,
+  "EN_V3_lambda_", lambda_str,
   "_alpha_" , alpha_str, 
   ".csv") 
 
