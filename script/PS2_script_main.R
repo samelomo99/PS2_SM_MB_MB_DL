@@ -45,11 +45,11 @@ pacman::p_load(
 # ---------- BASE DE DATOS ---------- # ----
 
 train_completo_hogares <- read_csv(
-  "https://raw.githubusercontent.com/samelomo99/PS2_SM_MB_MB_DL/refs/heads/main/stores/train.csv"
+  "https://raw.githubusercontent.com/samelomo99/PS2_SM_MB_MB_DL/refs/heads/main/stores/train_completo_hogares.csv"
 )
 
 test_completo_hogares <- read_csv(
-  "https://raw.githubusercontent.com/samelomo99/PS2_SM_MB_MB_DL/refs/heads/main/stores/test.csv"
+  "https://raw.githubusercontent.com/samelomo99/PS2_SM_MB_MB_DL/refs/heads/main/stores/test_completo_hogares.csv"
 )
 
 #En la base de datos a nivel hogar generaremos la variable de arriendo y seleccionaremos las variables que usaremos posteriormente, 
@@ -76,7 +76,7 @@ train <- train %>%
                                       1,
                                       0))
 #quitamos las variable ocupacion_jefe de la base porque ya se genero otra variable a partir de ella
-train <- train %>% select(-ocupacion_jefe)
+train <- train %>% dplyr::select(-ocupacion_jefe)
 
 #antes de convertir a factor, revisamos los valores de las categorias de la variables categoricas
 table(train$arrienda, useNA = "ifany")
@@ -155,8 +155,8 @@ train <- train %>%
 #entre ellas nuestra variable dependiente (que no se encuentra en la base de test):
 
 test<-test_completo_hogares %>% 
-  mutate(arrienda=ifelse(P5090==3,1,0)) %>% 
-  select(id,Dominio,arrienda,P5010, Nper, salud_jefe, edad_jefe, ocupacion_jefe, t_dependencia, nmujeres, nmenores, nocupados, n_sin_educacion,n_recibe_ayuda, H_Head_mujer, H_Head_Educ_level, clima_educ)
+  dplyr::mutate(arrienda=ifelse(P5090==3,1,0)) %>% 
+  dplyr::select(id,Dominio,arrienda,P5010, Nper, salud_jefe, edad_jefe, ocupacion_jefe, t_dependencia, nmujeres, nmenores, nocupados, n_sin_educacion,n_recibe_ayuda, H_Head_mujer, H_Head_Educ_level, clima_educ)
 
 # ---------- PROCESAMIENTO ADICIONAL BASE TEST---------- # ---- 
 
@@ -175,7 +175,7 @@ test <-test %>%
                                       1,
                                       0))
 #quitamos las variable ocupacion_jefe de la base porque ya se genero otra variable a partir de ella
-test <-test %>% select(-ocupacion_jefe)
+test <-test %>% dplyr::select(-ocupacion_jefe)
 
 #antes de convertir a factor, revisamos los valores de las categorias de la variables categoricas
 table(train$arrienda, useNA = "ifany")
@@ -261,6 +261,7 @@ model_ols1 <- train(Pobre~.,
                     trControl = ctrl) 
 
 model_ols1
+
 #Haciendo la prediccion 
 predictSample <- test   %>% 
   mutate(pobre_lab = predict(model_ols1, newdata = test, type = "raw")    ## predicted class labels
@@ -280,6 +281,8 @@ name<- paste0(
   "OLS.csv") #Dado que el modelo no tiene hiperparametros no es necesario usar algo mas sofisticado
 
 write.csv(predictSample,name, row.names = FALSE)
+
+
 # ---------- ELASTIC NET ---------- # ----
 set.seed(1410)
 library(caret)
@@ -289,10 +292,7 @@ index <- createDataPartition(train$Pobre, p = 0.7, list = FALSE)
 
 train_split <- train[index, ]
 test_split  <- train[-index, ]
-ctrl <- trainControl(method = "cv",
-                     number = 5,
-                     classProbs = TRUE,
-                     savePredictions = T)
+
 # Grilla para glmnet
 grid <- expand.grid(
   alpha = seq(0, 1, by = 0.1),
@@ -309,50 +309,125 @@ f1_summary <- function(data, lev = NULL, model = NULL) {
 }
 
 # Modelo con Accuracy ----
-ctrl_acc <- trainControl(method = "cv", number = 5)
-model_acc <- train(Pobre ~ ., data = train_split, method = "glmnet",
-                   metric = "Accuracy", trControl = ctrl_acc, tuneGrid = grid)
+ctrl_acc <- trainControl(method = "cv",
+                                 number = 5,
+                                 classProbs = TRUE,
+                                 savePredictions = T)
+
+model_acc <- train(Pobre ~ Nper + edad_jefe + nocupados + nmujeres + nmenores + 
+                     H_Head_mujer +  H_Head_Educ_level,
+                   data = train_split, method = "glmnet",
+                   metric = "Accuracy", trControl = ctrl_acc, 
+                   tuneGrid = grid)
 
 # Modelo con ROC ----
 ctrl_roc <- trainControl(method = "cv", number = 5,
                          summaryFunction = twoClassSummary,
-                         classProbs = TRUE)
-model_roc <- train(Pobre ~ ., data = train_split, method = "glmnet",
-                   metric = "ROC", trControl = ctrl_roc, tuneGrid = grid)
+                         classProbs = TRUE,
+                         savePredictions = T)
+
+model_roc <- train(Pobre ~ Nper + edad_jefe + nocupados + nmujeres + nmenores + 
+                     H_Head_mujer +  H_Head_Educ_level,
+                   data = train_split, method = "glmnet",
+                   metric = "ROC", trControl = ctrl_roc, 
+                   tuneGrid = grid)
 
 # Modelo con F1 ----
 ctrl_f1 <- trainControl(method = "cv", number = 5,
                         summaryFunction = f1_summary,
-                        classProbs = TRUE)
-model_f1 <- train(Pobre ~ ., data = train_split, method = "glmnet",
-                  metric = "F1", trControl = ctrl_f1, tuneGrid = grid)
+                        classProbs = TRUE,
+                        savePredictions = T)
+
+model_f1 <- train(Pobre ~ Nper + edad_jefe + nocupados + nmujeres + nmenores + 
+                    H_Head_mujer +  H_Head_Educ_level, 
+                  data = train_split, method = "glmnet",
+                  metric = "F1", trControl = ctrl_f1, 
+                  tuneGrid = grid)
 
 
 # ---------- Probamos el mejor modelo ---------- # ----
-# Predicciones
-pred_acc <- predict(model_acc, newdata = test_split)
-pred_roc <- predict(model_roc, newdata = test_split)
-pred_f1  <- predict(model_f1,  newdata = test_split)
+# Obtener las probabilidades de cada modelo
+probs_acc <- predict(model_acc, newdata = test_split, type = "prob")
+probs_f1  <- predict(model_f1,  newdata = test_split, type = "prob")
+probs_roc <- predict(model_roc, newdata = test_split, type = "prob")
 
-# Evaluación
-library(yardstick)
+# Aplicar el umbral personalizado: probabilidad de clase "Si" > 0.2
+pred_acc_02 <- ifelse(probs_acc$Si > 0.2, "Si", "No")
+pred_f1_02  <- ifelse(probs_f1$Si  > 0.3, "Si", "No")
+pred_roc_02 <- ifelse(probs_roc$Si > 0.1, "Si", "No")
+
+# Convertir a factor con los mismos niveles que test_split$Pobre
+pred_acc_02 <- factor(pred_acc_02, levels = levels(test_split$Pobre))
+pred_f1_02  <- factor(pred_f1_02,  levels = levels(test_split$Pobre))
+pred_roc_02 <- factor(pred_roc_02, levels = levels(test_split$Pobre))
+
+# Evaluar cada uno
+confusionMatrix(pred_acc_02, test_split$Pobre)
+confusionMatrix(pred_f1_02,  test_split$Pobre)
+confusionMatrix(pred_roc_02, test_split$Pobre)
+
+# Ver f1
+f1_ <- function(pred, ref) {
+  cm <- confusionMatrix(pred, ref, positive = "Si")
+  data.frame(
+    Accuracy = cm$overall["Accuracy"],
+    Kappa = cm$overall["Kappa"],
+    Sensibilidad = cm$byClass["Sensitivity"],
+    Especificidad = cm$byClass["Specificity"],
+    F1 = cm$byClass["F1"]
+  )
+}
+
+f1_(pred_acc_02, test_split$Pobre)
+f1_(pred_f1_02, test_split$Pobre)
+f1_(pred_roc_02, test_split$Pobre)
+
+# Vemos gráficamente cual puede ser el mejor umbral
+
+library(ggplot2)
+library(caret)
 library(dplyr)
 
-results <- bind_rows(
-  data.frame(model = "Accuracy", pred = pred_acc),
-  data.frame(model = "ROC", pred = pred_roc),
-  data.frame(model = "F1", pred = pred_f1)
-) %>%
-  mutate(truth = rep(test_split$Pobre, 3)) %>%
-  group_by(model) %>%
-  summarise(
-    Accuracy = accuracy_vec(truth, pred),
-    F1       = f_meas_vec(truth, pred),
-    Sens     = sens_vec(truth, pred),
-    Spec     = spec_vec(truth, pred)
-  )
+# Vector real
+y_real <- test_split$Pobre
 
-print(results)
+# Probabilidades del modelo (usa prob_f1 o prob_roc si preferís)
+probs <- probs_acc[, "Si"]
+
+# Crear función para calcular métricas por umbral
+metricas_umbral <- function(threshold, y_real, probs) {
+  pred <- factor(ifelse(probs > threshold, "Si", "No"), levels = c("No", "Si"))
+  cm <- confusionMatrix(pred, y_real, positive = "Si")
+  
+  data.frame(
+    threshold = threshold,
+    Accuracy = cm$overall["Accuracy"],
+    Kappa = cm$overall["Kappa"],
+    Sensibilidad = cm$byClass["Sensitivity"],
+    Especificidad = cm$byClass["Specificity"],
+    F1 = cm$byClass["F1"]
+  )
+}
+
+# Calcular para umbrales entre 0 y 1
+umbrales <- seq(0, 1, by = 0.05)
+resultados <- bind_rows(lapply(umbrales, metricas_umbral, y_real = y_real, probs = probs))
+
+# Reorganizar para ggplot
+resultados_largos <- resultados %>%
+  pivot_longer(cols = -threshold, names_to = "Metrica", values_to = "Valor")
+
+# Graficar
+ggplot(resultados_largos, aes(x = threshold, y = Valor, color = Metrica)) +
+  geom_line(size = 1) +
+  geom_vline(xintercept = 0.2, linetype = "dashed", color = "gray40") +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+  labs(title = "Evaluación de métricas según el umbral de corte",
+       x = "Umbral de corte (probabilidad para 'Pobre = Sí')",
+       y = "Valor de la métrica",
+       color = "Métrica") +
+  theme_minimal()
+
 
 
 # ---------- ENVIO PARA KAGGLE ELASTIC NET ---------- # ---- 
