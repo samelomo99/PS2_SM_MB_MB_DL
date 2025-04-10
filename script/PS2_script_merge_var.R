@@ -18,6 +18,9 @@ library(skimr)
 library(ggplot2)
 library(DataExplorer)
 
+install.packages("tidyr")
+# Luego, carga el paquete:
+library(tidyr)
 # ---------- DATOS ---------- #
 
 #- Los archivos de datos son demasiado grandes para GitHub. Lee los datos del siguiente enlace:
@@ -86,7 +89,7 @@ train_completo_personas$P6210[is.na(train_completo_personas$P6210)] <- 9
 # train_completo_personas$Oficio[is.na(train_completo_personas$Oficio)] <- mean(train_completo_personas$Oficio)
 #- Para oficio o cambiaría por mean o directamente elimino los NA
 
-#ajuste en la variables educacion 
+###ajuste en la variables educacion 
 
 table(train_completo_personas$P6210, useNA = "ifany")
 table(train_completo_personas$P6210s1, useNA = "ifany")
@@ -137,11 +140,16 @@ train_completo_personas <- train_completo_personas %>%
 
 train_completo_personas <- train_completo_personas %>%
   mutate(
-    mujer     = ifelse(P6020 == 2, 1, 0),
-    H_Head    = ifelse(P6050 == 1, 1, 0),
-    menor     = ifelse(P6040 <= 6, 1, 0),
-    ocupado   = ifelse(is.na(Oc), 0, 1),
-    sin_educacion  = ifelse(P6210 == 1, 1, 0)   # 1 si P6210 es 1 (ninguno)
+    mujer          = ifelse(P6020 == 2, 1, 0),
+    H_Head         = ifelse(P6050 == 1, 1, 0),
+    menor          = ifelse(P6040 <= 6, 1, 0),
+    ocupado        = ifelse(is.na(Oc), 0, 1),
+    sin_educacion  = ifelse(P6210 == 1, 1, 0),  # 1 si P6210 es 1 (ninguno)
+    recibe_ayuda   = case_when(
+      P7510s3 == 1 ~ 1,         # Sí recibió ayuda
+      P7510s3 %in% c(2, 9) ~ 0,   # No recibió ayuda o no sabe
+      TRUE ~ NA_real_            # Otros casos, si los hubiera
+    )
   )
 
 
@@ -203,9 +211,11 @@ resumen_familias_train <- train_completo_personas %>%
     
     # Variables específicas del jefe del hogar
     H_Head_mujer       = mujer[P6050 == 1][1],
-    H_Head_Educ_level  = EducLevel[P6050 == 1][1],
+    H_Head_Educ_level  = P6210[P6050 == 1][1],
     H_Head_ocupado     = ocupado[P6050 == 1][1],
     
+    # Nueva variable: número de personas en el hogar con recibe_ayuda == 1
+    n_recibe_ayuda = sum(recibe_ayuda == 1, na.rm = TRUE),
     
     #Promedio de años de educación (P6210s1) de los miembros con edad >= 18
     clima_educ = mean(P6210s1[P6040 >= 18], na.rm = TRUE),
@@ -227,7 +237,7 @@ saveRDS(train_completo_hogares, file = "train_completo_hogares.rds")
 write.csv(train_completo_hogares, file = "train_completo_hogares.csv", row.names = FALSE)
 
 
-# ----- TEST DATA ----- # ----
+# ----- TEST DATA ----- #
 
 ## Uniendo a nivel individuo
 
@@ -257,6 +267,70 @@ test_completo_personas$P6100[is.na(test_completo_personas$P6100)] <- 9
 test_completo_personas$P6210[is.na(test_completo_personas$P6210)] <- 9
 # test_completo_personas$Oficio[is.na(test_completo_personas$Oficio)] <- mean(test_completo_personas$Oficio)
 #- Para oficio o cambiaría por mean o directamente elimino los NA
+
+###ajuste en la variables educacion 
+
+table(test_completo_personas$P6210, useNA = "ifany")
+table(test_completo_personas$P6210s1, useNA = "ifany")
+
+test_completo_personas <- test_completo_personas %>%
+  mutate(P6210s1 = case_when(
+    P6210 == 1 & is.na(P6210s1) ~ 0,
+    TRUE ~ P6210s1
+  ))
+
+test_completo_personas <- test_completo_personas %>%
+  mutate(P6210s1 = case_when(
+    P6210 == 2 & is.na(P6210s1) ~ 0,
+    TRUE ~ P6210s1
+  ))
+
+test_completo_personas <- test_completo_personas %>%
+  mutate(P6210 = if_else(P6210s1 == 0, 1, P6210))
+
+test_completo_personas <- test_completo_personas %>%
+  mutate(P6210 = case_when(
+    P6210s1 >= 1 & P6210s1 <= 5  ~ 3,
+    P6210s1 >= 6 & P6210s1 <= 9  ~ 4,
+    P6210s1 >= 10 & P6210s1 <= 13 ~ 5,
+    TRUE ~ P6210  # En otros casos se mantiene el valor original
+  ))
+
+test_completo_personas <- test_completo_personas %>%
+  mutate(P6210 = if_else(P6210 == 9, 1, P6210))
+
+table(is.na(test_completo_personas$P6210), is.na(test_completo_personas$P6210s1))
+
+# Identificar los índices donde P6210 y P6210s1 son NA
+idx <- which(is.na(test_completo_personas$P6210) & is.na(test_completo_personas$P6210s1))
+
+# Reemplazar para esos índices:
+test_completo_personas$P6210[idx]   <- 1
+test_completo_personas$P6210s1[idx] <- 0
+
+table(test_completo_personas$P6210[test_completo_personas$P6210s1 == 99], useNA = "ifany")
+
+test_completo_personas <- test_completo_personas %>%
+  mutate(P6210s1 = if_else(P6210s1 == 99 & P6210 == 1, 0, P6210s1))
+
+#Por los valores que toma la variable p6210s1,se intuye que esta se puede
+#tomar directmente como los años de educacion
+
+
+test_completo_personas <- test_completo_personas %>%
+  mutate(
+    mujer          = ifelse(P6020 == 2, 1, 0),
+    H_Head         = ifelse(P6050 == 1, 1, 0),
+    menor          = ifelse(P6040 <= 6, 1, 0),
+    ocupado        = ifelse(is.na(Oc), 0, 1),
+    sin_educacion  = ifelse(P6210 == 1, 1, 0),  # 1 si P6210 es 1 (ninguno)
+    recibe_ayuda   = case_when(
+      P7510s3 == 1 ~ 1,         # Sí recibió ayuda
+      P7510s3 %in% c(2, 9) ~ 0,   # No recibió ayuda o no sabe
+      TRUE ~ NA_real_            # Otros casos, si los hubiera
+    )
+  )
+
 # ----------------------------------------------------
 
 
@@ -270,8 +344,8 @@ resumen_familias_test <- test_completo_personas %>%
     P6020_moda = names(sort(table(P6020), decreasing = TRUE))[1],  # Moda del género
     P6040_prom = mean(P6040, na.rm = TRUE),  # Promedio de edad del hogar
     P6050_jefe = sum(P6050 == 1, na.rm = TRUE),  # Cuántos jefes hay (debería ser 1)
-    P6100_moda = names(sort(table(P6100), decreasing = TRUE))[1], #Régimen de salud
-    P6210_moda = names(sort(table(P6210), decreasing = TRUE))[1], #Nivel educativo más alto
+    P6100_moda = names(sort(table(P6100), decreasing = TRUE))[1],
+    P6210_moda = names(sort(table(P6210), decreasing = TRUE))[1],
     #oficio_moda = names(sort(table(oficio), decreasing = TRUE))[1],
     
     # Sexo, salud y pensión del jefe del hogar
@@ -295,52 +369,30 @@ resumen_familias_test <- test_completo_personas %>%
     ingreso_p6620 = sum(P6620, na.rm = TRUE),
     ingreso_p7510s1 = sum(P7510s1, na.rm = TRUE),
     ingreso_p7510s2 = sum(P7510s2, na.rm = TRUE),
-    ingreso_p7510s3 = sum(P7510s3, na.rm = TRUE)
+    ingreso_p7510s3 = sum(P7510s3, na.rm = TRUE),
+    
+    #NUEVAS 
+    nmujeres=sum(mujer,na.rm=TRUE),
+    nmenores=sum(menor,na.rm=TRUE),
+    maxEducLevel=max(P6210,na.rm=TRUE),
+    nocupados=sum(ocupado,na.rm=TRUE),
+    n_sin_educacion = sum(sin_educacion, na.rm = TRUE),    # Número de personas sin educación (P6210 == 1)
+    
+    # Variables específicas del jefe del hogar
+    H_Head_mujer       = mujer[P6050 == 1][1],
+    H_Head_Educ_level  = P6210[P6050 == 1][1],
+    H_Head_ocupado     = ocupado[P6050 == 1][1],
+    
+    # Nueva variable: número de personas en el hogar con recibe_ayuda == 1
+    n_recibe_ayuda = sum(recibe_ayuda == 1, na.rm = TRUE),
+    
+    #Promedio de años de educación (P6210s1) de los miembros con edad >= 18
+    clima_educ = mean(P6210s1[P6040 >= 18], na.rm = TRUE),
   ) %>%
   ungroup()
 
-## Cálculo de la variable 'num_age_educ' a nivel individual
-train_completo_personas <- train_completo_personas %>%
-  mutate(num_age_educ = case_when(
-    P6210 == 1 ~ 0,                           # Ninguno: 0 años
-    P6210 == 2 ~ as.numeric(P6210s1),           # Preescolar: se toma P6210s1
-    P6210 == 3 ~ as.numeric(P6210s1),           # Básica primaria: se toma P6210s1
-    P6210 == 4 ~ as.numeric(P6210s1),           # Básica secundaria: se toma P6210s1
-    P6210 == 5 ~ as.numeric(P6210s1),           # Media: se toma P6210s1
-    P6210 == 6 ~ 13 + as.numeric(P6210s1),      # Superior: 13 años (básica y media) + años aprobados en superior
-    P6210 == 9 ~ NA_real_,                      # No sabe, no informa: NA
-    TRUE ~ NA_real_
-  ))
-
-# Estadística descriptiva de años de educacion  'num_age_educ'
-summary(train_completo_personas$num_age_educ)
-# Contar la cantidad de missing
-sum(is.na(train_completo_personas$num_age_educ))
-
-## Cálculo del clima educativo del hogar
-
-# Se calcula como el promedio de 'num_age_educ' de las personas adultas (edad >= 18) por hogar
-clima_edu <- train_completo_personas %>%
-  filter(P6040 >= 18) %>%   # Solo personas adultas
-  group_by(id) %>%
-  summarise(clima_eduactivo = mean(num_age_educ, na.rm = TRUE)) %>%
-  ungroup()
-
-## Cálculo de los años de educación del jefe del hogar
-# Se extrae 'num_age_educ' del jefe (P6050 == 1)
-edu_jefe <- train_completo_personas %>%
-  filter(P6050 == 1) %>%
-  group_by(id) %>%
-  summarise(edu_jefe = first(num_age_educ)) %>%
-  ungroup()
 
 ## Unir los resúmenes al nivel hogar
-
-# Se unen 'clima_eduactivo' y 'edu_jefe' al resumen general por hogar
-resumen_familias_test <- resumen_familias_test %>%
-  left_join(clima_edu, by = "id") %>%
-  left_join(edu_jefe, by = "id")
-
 
 #- Unimos la base de hogares con el resumen de personas a nivel hogar
 test_completo_hogares <- left_join(test_hogares, resumen_familias_test, by = "id")
