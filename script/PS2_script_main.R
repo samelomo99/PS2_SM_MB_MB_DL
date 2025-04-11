@@ -241,8 +241,9 @@ test <-test %>%
                                labels = c("Ninguno", "Preescolar", "Primaria", "Secundaria", "Media", "Universitaria"))
   )
 
-
-# ---------- MODELOS ---------- # ----
+# ----------------------------- #
+# ---------- MODELOS ---------- # 
+# ----------------------------- # ----
 
 # ---------- OLS ---------- # ----
 #Montamos la validacion cruzada
@@ -332,33 +333,21 @@ model_roc <- train(Pobre ~ Nper + edad_jefe + nocupados + nmujeres + nmenores +
                    metric = "ROC", trControl = ctrl_roc, 
                    tuneGrid = grid)
 
-# Modelo con F1 ----
-ctrl_f1 <- trainControl(method = "cv", number = 5,
-                        summaryFunction = f1_summary,
-                        classProbs = TRUE,
-                        savePredictions = T)
 
-model_f1 <- train(Pobre ~ Nper + edad_jefe + nocupados + nmujeres + nmenores + 
-                    H_Head_mujer +  H_Head_Educ_level, 
-                  data = train_split, method = "glmnet",
-                  metric = "F1", trControl = ctrl_f1, 
-                  tuneGrid = grid)
-
-
-# ---------- Probamos el mejor modelo ---------- # ----
+# Probamos el mejor modelo # ----
 # Obtener las probabilidades de cada modelo
 probs_acc <- predict(model_acc, newdata = test_split, type = "prob")
-probs_f1  <- predict(model_f1,  newdata = test_split, type = "prob")
-probs_roc <- predict(model_roc, newdata = test_split, type = "prob")
+probs_roc  <- predict(model_roc,  newdata = test_split, type = "prob")
+
 
 # Aplicar el umbral personalizado: probabilidad de clase "Si" > 0.2
-pred_acc_02 <- ifelse(probs_acc$Si > 0.2, "Si", "No")
-pred_f1_02  <- ifelse(probs_f1$Si  > 0.3, "Si", "No")
-pred_roc_02 <- ifelse(probs_roc$Si > 0.1, "Si", "No")
+pred_acc_02 <- ifelse(probs_acc$Si < 0.2, "Si", "No")
+pred_roc_01  <- ifelse(probs_roc$Si  < 0.3, "Si", "No")
+pred_roc_02 <- ifelse(probs_roc$Si < 0.1, "Si", "No")
 
 # Convertir a factor con los mismos niveles que test_split$Pobre
 pred_acc_02 <- factor(pred_acc_02, levels = levels(test_split$Pobre))
-pred_f1_02  <- factor(pred_f1_02,  levels = levels(test_split$Pobre))
+pred_roc_01  <- factor(pred_f1_02,  levels = levels(test_split$Pobre))
 pred_roc_02 <- factor(pred_roc_02, levels = levels(test_split$Pobre))
 
 # Evaluar cada uno
@@ -379,7 +368,7 @@ f1_ <- function(pred, ref) {
 }
 
 f1_(pred_acc_02, test_split$Pobre)
-f1_(pred_f1_02, test_split$Pobre)
+f1_(pred_roc_01, test_split$Pobre)
 f1_(pred_roc_02, test_split$Pobre)
 
 # Vemos gráficamente cual puede ser el mejor umbral
@@ -428,33 +417,52 @@ ggplot(resultados_largos, aes(x = threshold, y = Valor, color = Metrica)) +
        color = "Métrica") +
   theme_minimal()
 
+# Nos quedamos con model_acc
+
+# Envío Kaggle Elastic Net # ---- 
+# Modelo ACC
+
+ctrl_acc_f <- trainControl(method = "cv",
+                         number = 5,
+                         classProbs = TRUE,
+                         savePredictions = T)
+
+model_acc_f <- train(Pobre ~ Nper + edad_jefe + nocupados + nmujeres + nmenores + 
+                     H_Head_mujer +  H_Head_Educ_level,
+                   data = train, method = "glmnet",
+                   metric = "Accuracy", trControl = ctrl_acc, 
+                   tuneGrid = grid)
 
 
-# ---------- ENVIO PARA KAGGLE ELASTIC NET ---------- # ---- 
 #- Hacemos la predicción
-predictSample_en2 <- test   %>% 
-  mutate(pobre_lab = predict(model_en2, newdata = test, type = "raw")    ## predicted class labels
-  )  %>% dplyr::select(id,pobre_lab)
 
-head(predictSample_en2)
+predictSample_en <- test %>%
+  mutate(prob_Si = predict(model_acc_f, newdata = test, type = "prob")[, "Si"],
+         pobre_lab = ifelse(prob_Si > 0.2, "Si", "No")) %>%
+  dplyr::select(id, pobre_lab)
+
+head(predictSample_en)
 
 #- Transformamos variable pobre para que cumpla con la especificación de la competencia
-predictSample_en2 <- predictSample_en2 %>% 
-  mutate(pobre=ifelse(pobre_lab=="Yes",1,0)) %>% 
-  dplyr::select(id,pobre)
-head(predictSample_en2)
+
+predictSample_en <- predictSample_en %>%
+  mutate(pobre = ifelse(pobre_lab == "Si", 1, 0)) %>%
+  dplyr::select(id, pobre)
+
+head(predictSample_en)
+
 
 lambda_str <- gsub(
   "\\.", "_", 
-  as.character(round(model_en2$bestTune$lambda, 4)))
-alpha_str <- gsub("\\.", "_", as.character(model_en2$bestTune$alpha))
+  as.character(round(model_acc_f$bestTune$lambda, 4)))
+alpha_str <- gsub("\\.", "_", as.character(model_acc_f$bestTune$alpha))
 
 name<- paste0(
-  "EN_V3_lambda_", lambda_str,
+  "EN_VF_lambda_", lambda_str,
   "_alpha_" , alpha_str, 
   ".csv") 
 
-write.csv(predictSample_en2,name, row.names = FALSE)
+write.csv(predictSample_en,name, row.names = FALSE)
 
 
 # ---------- MODELO LOGIT---------- # ----   
@@ -664,7 +672,7 @@ print(df_comparacion)
 
 write.csv(df_comparacion, file = "df_comparacionv2.csv", row.names = FALSE)
 
-# ---------- VERIFICACION DE LA ESPECIFICACION DEL MODELO--------- # ---- 
+# Verificación especificación del modelo # ---- 
 
 ###Prueba para verificar si mi mejor modelo realmente predice bien 
 
@@ -772,7 +780,7 @@ cat("Precisión del modelo:", round(precision, 4), "\n")
 
 ###RESULTADO: Debido al desbalance de clase el resultado no es muy bueno
 
-# ---------- ENVIO PARA KAGGLE LOGIT --------- # ----
+# Envío Kaggle Logit # ----
 
 #En este caso, logit_m4 destaca al combinar un rendimiento excelente (AUC de 0.93768 y F de 0.89689) con una menor complejidad (10 predictores) y menor variabilidad (FSD muy baja).
 #Por lo tanto, basándonos en estos resultados, logit_m4 es una opción sólida para realizar predicciones en datos nuevos.
