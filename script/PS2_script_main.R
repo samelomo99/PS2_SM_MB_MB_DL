@@ -1179,3 +1179,159 @@ write.csv(predictSample_CART_kgg, name, row.names = FALSE)
 # Pobre~arrienda + ocup_jefe_informal +H_Head_mujer+n_sin_educacion+nmenores+Nper
 # Pobre~edad_jefe+H_Head_mujer+Nper+ ocup_jefe_informal*H_Head_mujer+ H_Head_Educ_level*H_Head_mujer + clima_educ + arrienda +p5010
 
+#--------------Boosting----------------------------------------------
+
+##----------------AdaBoots M1----------------------------------------#
+#Formando los evaluadores
+fiveStats <- function(...) {
+  c(
+    caret::twoClassSummary(...), # Returns ROC, Sensitivity, and Specificity
+    caret::defaultSummary(...)  # Returns RMSE and R-squared (for regression) or Accuracy and Kappa (for classification)
+  )
+}
+
+
+ctrl<- trainControl(method = "cv",
+                    number = 5,
+                    summaryFunction = fiveStats,
+                    classProbs = TRUE, 
+                    verbose=FALSE,
+                    savePredictions = T)
+
+#Formando la grilla de valores a usar en el proceos de entrenamiento
+
+adagrid <- expand.grid(
+  mfinal = c(50, 100), 
+  maxdepth = c(1, 2), 
+  coeflearn = c('Breiman')
+)
+
+#Creando el modelo
+
+set.seed(10101) # important set seed. 
+
+adaboost_tree <- train(Pobre~t_dependencia + edad_jefe + P6210_moda + Nper + P5090 + H_Head_Educ_level,
+                       data = train, 
+                       method = "AdaBoost.M1",  # para implementar el algoritmo antes descrito
+                       trControl = ctrl,
+                       metric = "ROC",
+                       tuneGrid=adagrid
+)
+
+adaboost_tree
+
+#ahora predecimos el funcionamiento del modelo
+predictSample <- test   %>% 
+  mutate(pobre_lab = predict(adaboost_tree, newdata = test, type = "raw")    ## predicted class labels
+  )  %>% dplyr::select(id,pobre_lab)
+
+head(predictSample)
+
+#- Transformamos variable pobre para que cumpla con la especificación de la competencia
+predictSample <- predictSample %>% 
+  mutate(pobre=ifelse(pobre_lab=="Yes",1,0)) %>% 
+  dplyr::select(id,pobre)
+head(predictSample)
+
+#- Formato específico Kaggle 
+lambda_str <- gsub(
+  "\\.", "_", 
+  as.character(round(adaboost_tree$bestTune$lambda, 4)))
+alpha_str <- gsub("\\.", "_", as.character(adaboost_tree$bestTune$alpha))
+
+name<- paste0(
+  "EN_lambda_", lambda_str,
+  "_alpha_" , alpha_str, 
+  ".csv") 
+
+write.csv(predictSample,name, row.names = FALSE)
+
+#usando una muesta partida volvemos a estimar el modelo para probar estadistico F1
+set.seed(10101) # important set seed. 
+
+adaboost_tree_70 <- train(Pobre~t_dependencia + edad_jefe + P6210_moda + Nper + P5090 + H_Head_Educ_level,
+                          data = train_70, 
+                          method = "AdaBoost.M1",  # para implementar el algoritmo antes descrito
+                          trControl = ctrl,
+                          metric = "ROC",
+                          tuneGrid=adagrid
+)
+
+adaboost_tree_70
+
+#ahora predecimos el funcionamiento del modelo
+predictSample_30 <- train_30   %>% 
+  mutate(pobre_lab = predict(adaboost_tree_70, newdata = train_30, type = "raw")    ## predicted class labels
+  )  %>% dplyr::select(pobre_lab)
+
+head(predictSample_30)
+#- Transformamos variable pobre para que cumpla con la especificación de la competencia
+predictSample_30 <- predictSample_30 %>% 
+  mutate(pobre=ifelse(pobre_lab=="Yes",1,0)) %>% 
+  dplyr::select(pobre)
+head(predictSample_30)
+
+
+
+aucval_AdaBoost_70 <- Metrics::auc(actual = train_30$Pobre,predicted = predictSample_30[,1])
+aucval_AdaBoost_70
+
+actual <- ifelse(test$Pobre == "Si", 1, 0)
+library(MLmetrics)
+
+F1_Score(y_pred = predictSample_30$pobre, y_true = train_30$Pobre, positive = "1")
+
+### Gradient Boosting 
+
+p_load(gbm)
+
+
+grid_gbm<-expand.grid(n.trees= c( 50, 100,150),
+                      interaction.depth=c(1,2),
+                      shrinkage=c(0.01),
+                      n.minobsinnode=c(5, 10))
+
+set.seed(91519) # important set seed. 
+gbm_tree <- train(Pobre~t_dependencia + edad_jefe + P6210_moda + Nper + P5090 + H_Head_Educ_level,
+                  data = train, 
+                  method = "gbm", 
+                  trControl = ctrl,
+                  tuneGrid=grid_gbm,
+                  metric = "ROC",
+                  verbose = FALSE
+)            
+gbm_tree
+
+pred_prob <- predict(gbm_tree,
+                     newdata = test, 
+                     type = "prob")   
+
+
+aucval_GRboost <- Metrics::auc(actual = pobre,predicted = pred_prob[,2])
+aucval_GRboost 
+
+
+## XGboost
+
+p_load(xgboost)
+
+grid_xbgoost <- expand.grid(nrounds = c(250,500),
+                            max_depth = c(1, 2),
+                            eta = c(0.1,  0.01), 
+                            gamma = c(0, 1), 
+                            min_child_weight = c(10, 25),
+                            colsample_bytree = c(0.4, 0.7), 
+                            subsample = c(0.7))
+grid_xbgoost
+
+set.seed(91519) # Importante definir la semilla antes entrenar
+Xgboost_tree <- train(Pobre~t_dependencia + edad_jefe + P6210_moda + Nper + P5090 + H_Head_Educ_level,
+                      data = train, 
+                      method = "xgbTree", 
+                      trControl = ctrl,
+                      tuneGrid=grid_xbgoost,
+                      metric = "ROC",
+                      verbosity = 0
+)         
+Xgboost_tree
+
