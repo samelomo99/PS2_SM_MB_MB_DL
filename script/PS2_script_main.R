@@ -1182,6 +1182,17 @@ write.csv(predictSample_CART_kgg, name, row.names = FALSE)
 #--------------Boosting----------------------------------------------
 
 ##----------------AdaBoots M1----------------------------------------#
+#Creando una base train dividida 
+library(rsample)
+set.seed(123)  # para que la división sea reproducible
+splitB <- initial_split(train, prop = 0.7)
+
+train_70B <- training(splitB)  # 70%
+train_30B <- testing(splitB)   # 30%
+
+
+
+
 #Formando los evaluadores
 fiveStats <- function(...) {
   c(
@@ -1210,7 +1221,7 @@ adagrid <- expand.grid(
 
 set.seed(10101) # important set seed. 
 
-adaboost_tree <- train(Pobre~t_dependencia + edad_jefe + P6210_moda + Nper + P5090 + H_Head_Educ_level,
+adaboost_tree <- train(Pobre~t_dependencia + edad_jefe + Nper + H_Head_Educ_level + nmujeres+ nmenores + nocupados,
                        data = train, 
                        method = "AdaBoost.M1",  # para implementar el algoritmo antes descrito
                        trControl = ctrl,
@@ -1221,36 +1232,38 @@ adaboost_tree <- train(Pobre~t_dependencia + edad_jefe + P6210_moda + Nper + P50
 adaboost_tree
 
 #ahora predecimos el funcionamiento del modelo
-predictSample <- test   %>% 
+predictSample_adaboost <- test   %>% 
   mutate(pobre_lab = predict(adaboost_tree, newdata = test, type = "raw")    ## predicted class labels
   )  %>% dplyr::select(id,pobre_lab)
 
-head(predictSample)
+head(predictSample_adaboost)
+unique(predictSample_adaboost)
 
 #- Transformamos variable pobre para que cumpla con la especificación de la competencia
-predictSample <- predictSample %>% 
-  mutate(pobre=ifelse(pobre_lab=="Yes",1,0)) %>% 
+predictSample_adaboost <- predictSample_adaboost %>% 
+  mutate(pobre=ifelse(pobre_lab=="Si",1,0)) %>% 
   dplyr::select(id,pobre)
-head(predictSample)
+head(predictSample_adaboost)
 
 #- Formato específico Kaggle 
 lambda_str <- gsub(
   "\\.", "_", 
-  as.character(round(adaboost_tree$bestTune$lambda, 4)))
-alpha_str <- gsub("\\.", "_", as.character(adaboost_tree$bestTune$alpha))
-
+  as.character(round(adaboost_tree$bestTune$mfinal, 4)))
+alpha_str <- gsub("\\.", "_", as.character(adaboost_tree$bestTune$maxdepth))
+al_str <- gsub("\\.", "_", as.character(adaboost_tree$bestTune$coeflearn))
 name<- paste0(
-  "EN_lambda_", lambda_str,
-  "_alpha_" , alpha_str, 
+  "Adaboost_", lambda_str,
+  "_mfinal_" , alpha_str, 
+  "_coeflearn", al_str,
   ".csv") 
 
-write.csv(predictSample,name, row.names = FALSE)
+write.csv(predictSample_adaboost,name, row.names = FALSE)
 
 #usando una muesta partida volvemos a estimar el modelo para probar estadistico F1
 set.seed(10101) # important set seed. 
 
-adaboost_tree_70 <- train(Pobre~t_dependencia + edad_jefe + P6210_moda + Nper + P5090 + H_Head_Educ_level,
-                          data = train_70, 
+adaboost_tree_70 <- train(Pobre~t_dependencia + edad_jefe + Nper + H_Head_Educ_level + nmujeres+ nmenores + nocupados,
+                          data = train_70B, 
                           method = "AdaBoost.M1",  # para implementar el algoritmo antes descrito
                           trControl = ctrl,
                           metric = "ROC",
@@ -1260,28 +1273,41 @@ adaboost_tree_70 <- train(Pobre~t_dependencia + edad_jefe + P6210_moda + Nper + 
 adaboost_tree_70
 
 #ahora predecimos el funcionamiento del modelo
-predictSample_30 <- train_30   %>% 
-  mutate(pobre_lab = predict(adaboost_tree_70, newdata = train_30, type = "raw")    ## predicted class labels
+#primero transformamos la variable a factor 
+train_30B <- train_30B %>%
+  mutate(H_Head_Educ_level = as.factor(H_Head_Educ_level))
+
+predictSample_30 <- train_30B   %>% 
+  mutate(pobre_lab = predict(adaboost_tree_70, newdata = train_30B, type = "raw")    ## predicted class labels
   )  %>% dplyr::select(pobre_lab)
 
 head(predictSample_30)
 #- Transformamos variable pobre para que cumpla con la especificación de la competencia
-predictSample_30 <- predictSample_30 %>% 
-  mutate(pobre=ifelse(pobre_lab=="Yes",1,0)) %>% 
-  dplyr::select(pobre)
-head(predictSample_30)
+train_30B <- train_30B %>% 
+  mutate(pobre_prob=ifelse(pobre_prob=="Si",1,0)) 
+head(train_30B)
+
+# Convertimos ambas variables a 1 y 0
+train_30B <- train_30B %>%
+  mutate(
+    pobre_prob = ifelse(pobre_prob == "Si", 1, 0),
+    Pobre = ifelse(Pobre == "Si", 1, 0)
+  )
+
+
+# Paso 2: obtener las probabilidades de la clase "1"
+train_30B <- train_30B %>%
+  mutate(pobre_prob = predict(adaboost_tree_70, newdata = train_30B, type = "raw"))
+
+
+##Generando la matriz de confusion 
+
+confusionMatrix(data = train_30B$pobre_prob, reference = train_30B$Pobre, positive = "Si")
 
 
 
-aucval_AdaBoost_70 <- Metrics::auc(actual = train_30$Pobre,predicted = predictSample_30[,1])
-aucval_AdaBoost_70
 
-actual <- ifelse(test$Pobre == "Si", 1, 0)
-library(MLmetrics)
-
-F1_Score(y_pred = predictSample_30$pobre, y_true = train_30$Pobre, positive = "1")
-
-### Gradient Boosting 
+### ..---------Gradient Boosting 
 
 p_load(gbm)
 
@@ -1292,7 +1318,7 @@ grid_gbm<-expand.grid(n.trees= c( 50, 100,150),
                       n.minobsinnode=c(5, 10))
 
 set.seed(91519) # important set seed. 
-gbm_tree <- train(Pobre~t_dependencia + edad_jefe + P6210_moda + Nper + P5090 + H_Head_Educ_level,
+gbm_tree <- train(Pobre~t_dependencia + edad_jefe + Nper + H_Head_Educ_level + nmujeres+ nmenores + nocupados,,
                   data = train, 
                   method = "gbm", 
                   trControl = ctrl,
@@ -1310,8 +1336,28 @@ pred_prob <- predict(gbm_tree,
 aucval_GRboost <- Metrics::auc(actual = pobre,predicted = pred_prob[,2])
 aucval_GRboost 
 
+##Para la version de prueba
+gbm_tree_70 <- train(Pobre~t_dependencia + edad_jefe + Nper + H_Head_Educ_level + nmujeres+ nmenores + nocupados,
+                  data = train, 
+                  method = "gbm", 
+                  trControl = ctrl,
+                  tuneGrid=grid_gbm,
+                  metric = "ROC",
+                  verbose = FALSE
+)            
+gbm_tree_70
 
-## XGboost
+# Paso 2: obtener las probabilidades de la clase "1"
+train_30B <- train_30B %>%
+  mutate(pobre_prob = predict(gbm_tree_70, newdata = train_30B, type = "raw"))
+
+
+##Generando la matriz de confusion 
+
+confusionMatrix(data = train_30B$pobre_prob, reference = train_30B$Pobre, positive = "Si")
+
+
+## -------XGboost
 
 p_load(xgboost)
 
@@ -1325,7 +1371,7 @@ grid_xbgoost <- expand.grid(nrounds = c(250,500),
 grid_xbgoost
 
 set.seed(91519) # Importante definir la semilla antes entrenar
-Xgboost_tree <- train(Pobre~t_dependencia + edad_jefe + P6210_moda + Nper + P5090 + H_Head_Educ_level,
+Xgboost_tree <- train(Pobre~t_dependencia + edad_jefe + Nper + H_Head_Educ_level + nmujeres+ nmenores + nocupados,
                       data = train, 
                       method = "xgbTree", 
                       trControl = ctrl,
@@ -1334,4 +1380,51 @@ Xgboost_tree <- train(Pobre~t_dependencia + edad_jefe + P6210_moda + Nper + P509
                       verbosity = 0
 )         
 Xgboost_tree
+#ahora predecimos el funcionamiento del modelo
+predictSample <- test   %>% 
+  mutate(pobre_lab = predict(Xgboost_tree, newdata = test, type = "raw")    ## predicted class labels
+  )  %>% dplyr::select(id,pobre_lab)
+
+head(predictSample)
+
+#- Transformamos variable pobre para que cumpla con la especificación de la competencia
+predictSample <- predictSample %>% 
+  mutate(pobre=ifelse(pobre_lab=="Yes",1,0)) %>% 
+  dplyr::select(id,pobre)
+head(predictSample)
+
+#- Formato específico Kaggle 
+lambda_str <- gsub(
+  "\\.", "_", 
+  as.character(round(Xgboost_tree$bestTune$lambda, 4)))
+alpha_str <- gsub("\\.", "_", as.character(Xgboost_tree$bestTune$alpha))
+
+name<- paste0(
+  "EN_lambda_", lambda_str,
+  "_alpha_" , alpha_str, 
+  ".csv") 
+
+write.csv(predictSample,name, row.names = FALSE)
+
+
+#Modelo de prueba final
+
+Xgboost_tree_70 <- train(Pobre~t_dependencia + clima_educ + edad_jefe + nocupados + recibe_ayuda_ + arrienda + salud_jefe + ocup_jefe_informal + P5010 + H_Head_mujer,
+                      data = train_70B, 
+                      method = "xgbTree", 
+                      trControl = ctrl,
+                      tuneGrid=grid_xbgoost,
+                      metric = "ROC",
+                      verbosity = 0
+)         
+Xgboost_tree_70
+
+train_30B <- train_30B %>%
+  mutate(pobre_prob = predict(gbm_tree_70, newdata = train_30B, type = "raw"))
+
+
+##Generando la matriz de confusion 
+
+confusionMatrix(data = train_30B$pobre_prob, reference = train_30B$Pobre, positive = "Si")
+
 
