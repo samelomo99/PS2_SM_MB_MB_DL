@@ -38,7 +38,13 @@ pacman::p_load(
   xtable,
   tidyr,
   gmodels,
-  glmnet
+  glmnet,
+  ranger, # Para bagging y random forest
+  randomForest, # Para random forest
+  tidyverse, # tidy-data
+  caret ,  # for model training and tunning
+  Metrics, ## Evaluation Metrics for ML
+  adabag
 )
 
 
@@ -826,7 +832,7 @@ p_load(tidyverse, # tidy-data
        ranger #For random Forest
 )   
 
-# ---------- ejercicio 1: usando especificacion del modelo 4------- # ---- 
+# Ejercicio 1: usando especificación del modelo 4------- # ---- 
 
 #Partimos de la especificacion usada en el modelo 4 del logit
 
@@ -864,7 +870,7 @@ minbucket_tree
 
 prp(minbucket_tree, under = TRUE, branch.lty = 2, yesno = 2, faclen = 0, varlen=15,box.palette = "-RdYlGn")
 
-# ---------- Poda del arbol ejercicio 1-------- # ----  
+# Poda del arbol ejercicio 1-------- # ----  
 
 #usando alpha=0.01
 
@@ -922,7 +928,7 @@ cv_tree_1
 
 cv_tree_1$bestTune$cp
 
-# ---------- arbol final del ejercicio 1-------- # ---- 
+# Árbol final del ejercicio 1-------- # ---- 
 
 prp(cv_tree_1$finalModel, under = TRUE, branch.lty = 2, yesno = 2, faclen = 0, varlen=15,box.palette = "-RdYlGn")
 
@@ -1087,7 +1093,7 @@ minbucket_tree_kgg
 
 prp(minbucket_tree_kgg, under = TRUE, branch.lty = 2, yesno = 2, faclen = 0, varlen=15,box.palette = "-RdYlGn")
 
-# ---------- Poda del arbol para kaggle-------- # ----  
+# Poda del arbol para kaggle-------- # ----  
 
 #usando alpha=0.01
 
@@ -1137,7 +1143,7 @@ cv_tree_kgg
 
 cv_tree_kgg$bestTune$cp
 
-# ---------- arbol final del ejercicio para kaggle-------- # ---- 
+# Árbol final del ejercicio para kaggle-------- # ---- 
 
 prp(cv_tree_kgg$finalModel, under = TRUE, branch.lty = 2, yesno = 2, faclen = 0, varlen=15,box.palette = "-RdYlGn")
 
@@ -1179,7 +1185,7 @@ write.csv(predictSample_CART_kgg, name, row.names = FALSE)
 # Pobre~arrienda + ocup_jefe_informal +H_Head_mujer+n_sin_educacion+nmenores+Nper
 # Pobre~edad_jefe+H_Head_mujer+Nper+ ocup_jefe_informal*H_Head_mujer+ H_Head_Educ_level*H_Head_mujer + clima_educ + arrienda +p5010
 
-#--------------Boosting----------------------------------------------
+# ---------- MODELO BOOSTING ----------- # ----
 
 ##----------------AdaBoots M1----------------------------------------#
 #Creando una base train dividida 
@@ -1428,3 +1434,131 @@ train_30B <- train_30B %>%
 confusionMatrix(data = train_30B$pobre_prob, reference = train_30B$Pobre, positive = "Si")
 
 
+
+
+# ---------- MODELO RANDOM FOREST ----------- # ----
+
+# Modelo sin CV ----
+set.seed(1410)
+
+# Creamos índices para dividir
+index <- createDataPartition(train$Pobre, p = 0.7, list = FALSE)
+
+train_split <- train[index, ]
+test_split  <- train[-index, ]
+
+rf <- randomForest::randomForest(
+  Pobre ~ Nper + edad_jefe + nocupados + nmujeres + nmenores + 
+    H_Head_mujer +  H_Head_Educ_level,
+  data = train_split,
+  importance = TRUE,
+  ntree = 500,
+  mtry = 4,
+  nodesize = 1
+)
+
+rf
+
+# Hacemos las predicciones
+
+# Revisar que los factores sean iguales en train y test
+all_factors <- sapply(train_split, is.factor)
+factor_vars <- names(train_split)[all_factors]
+
+for (var in factor_vars) {
+  train_levels <- levels(train_split[[var]])
+  test_levels <- levels(test_split[[var]])
+  
+  if (!identical(train_levels, test_levels)) {
+    stop(
+      sprintf("Mismatch in factor levels for variable '%s':\n  Train levels: %s\n  Test levels: %s",
+              var,
+              paste(train_levels, collapse = ", "),
+              paste(test_levels, collapse = ", "))
+    )
+  }
+}
+
+
+Default_hat <- stats::predict(
+  rf, # usamos objeto randomForest
+  newdata = test_split,
+  type = 'response',
+  predict.all = TRUE # para obtener la predicción de cada arbol.
+)$individual # Guardamos la predicción de cada árbol en forma de dataframe
+
+
+# Calcular las probabilidades de ser "Si" (Pobre)
+ntrees <- ncol(Default_hat)
+phat.rf <- rowSums(Default_hat == "Si") / ntrees
+
+# Convertir la variable real (observada) a numérica: 1 si es "Si", 0 si es "No"
+actual_values <- as.numeric(test_split$Pobre == "Si")
+
+# Calcular el AUC
+aucval_rf <- Metrics::auc(
+  actual = actual_values, 
+  predicted = phat.rf
+)
+
+aucval_rf
+
+# Predicción
+
+names(predict(
+  rf, # usamos objeto randomForest
+  newdata = test, 
+  predict.all = TRUE # para obtener la predicción de cada arbol. 
+))
+
+
+# Modelo con CV ----
+fiveStats <- function(...) {
+  c(
+    caret::twoClassSummary(...), # Returns ROC, Sensitivity, and Specificity
+    caret::defaultSummary(...)  # Returns RMSE and R-squared (for regression) or Accuracy and Kappa (for classification)
+  )
+}
+
+ctrl<- trainControl(method = "cv",
+                    number = 5,
+                    summaryFunction = fiveStats,
+                    classProbs = TRUE,
+                    verbose=FALSE,
+                    savePredictions = T)
+
+mtry_grid<-expand.grid(mtry =c(2,4,6,8), # 8 incluye bagging
+                       min.node.size= c(1, 5, 10, 20, 35, 50), #controla la complejidad del arbol
+                       splitrule= 'gini') # tomamos gini como splitrule 
+mtry_grid
+
+cv_RForest <- train(Pobre ~ Nper + edad_jefe + nocupados + nmujeres + nmenores + 
+                      H_Head_mujer +  H_Head_Educ_level, 
+                    data = train, 
+                    method = "ranger", # llamamos el paquete del metodo a utilizar
+                    trControl = ctrl,
+                    metric="ROC", # metrica a optimizar
+                    tuneGrid = mtry_grid,
+                    ntree=500)
+
+cv_RForest
+
+#- Hacemos la predicción
+
+predict_CV_RForest <- test %>%
+  mutate(prob_Si = predict(cv_RForest, newdata = test, type = "prob")[, "Si"],
+         pobre_lab = ifelse(prob_Si >= 0.5, "Si", "No")) %>%
+  dplyr::select(id, pobre_lab)
+
+head(predict_CV_RForest)
+
+# Convertimos la etiqueta (pobre_lab) a formato binario (1 para "Si", 0 para "No"),
+predict_CV_RForest <- predict_CV_RForest %>% 
+  mutate(pobre = ifelse(pobre_lab == "Si", 1, 0)) %>% 
+  dplyr::select(id, pobre_lab)
+
+head(predict_CV_RForest)
+
+
+name <- "RF_cv.csv"
+write.csv(predict_CV_RForest, name, row.names = FALSE)
