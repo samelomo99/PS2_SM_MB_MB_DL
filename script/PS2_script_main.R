@@ -56,7 +56,7 @@ train_completo_hogares <- read_csv(
 
 test_completo_hogares <- read_csv(
   "https://raw.githubusercontent.com/samelomo99/PS2_SM_MB_MB_DL/refs/heads/main/stores/test_completo_hogares.csv"
-)
+) # no hay Bogotá en dominio de test_completo_hogares
 
 #En la base de datos a nivel hogar generaremos la variable de arriendo y seleccionaremos las variables que usaremos posteriormente, 
 #entre ellas nuestra variable dependiente (que no se encuentra en la base de test):
@@ -139,6 +139,10 @@ train <- train %>%
 #H_Head_Educ_level   1= Ninguno 2=Preescolar 3=Primaria 4= secundaria 5=media 6=superior
 #recibe_ayuda_       1= al menos un miembro del hogar recibio ayuda de insticuion del gobierno 0=otro caso
 
+# No hay Bogotá en dominio, la eliminamos de train
+train <- train %>% filter(Dominio != "BOGOTA")
+
+# hacemos el mutate
 train <- train %>% 
   mutate(
     Pobre = factor(Pobre, levels = c(0, 1), labels = c("No", "Si")),
@@ -1447,23 +1451,23 @@ index <- createDataPartition(train$Pobre, p = 0.7, list = FALSE)
 train_split <- train[index, ]
 test_split  <- train[-index, ]
 
+# Eliminamos la variable 'id' del conjunto de entrenamiento
+train_split_rf <- train_split %>% dplyr::select(-id)
+
+# Entrenamos el modelo Random Forest
 rf <- randomForest::randomForest(
-  Pobre ~ Nper + edad_jefe + nocupados + nmujeres + nmenores + 
-    H_Head_mujer +  H_Head_Educ_level,
-  data = train_split,
+  Pobre ~ .,
+  data = train_split_rf,
   importance = TRUE,
   ntree = 500,
   mtry = 4,
   nodesize = 1
 )
 
+# Mostramos el modelo entrenado
 rf
 
 # Hacemos las predicciones
-
-# Revisar que los factores sean iguales en train y test
-all_factors <- sapply(train_split, is.factor)
-factor_vars <- names(train_split)[all_factors]
 
 for (var in factor_vars) {
   train_levels <- levels(train_split[[var]])
@@ -1479,37 +1483,80 @@ for (var in factor_vars) {
   }
 }
 
-
-Default_hat <- stats::predict(
+# Predicciones
+predict_RF <- stats::predict(
   rf, # usamos objeto randomForest
   newdata = test_split,
   type = 'response',
   predict.all = TRUE # para obtener la predicción de cada arbol.
-)$individual # Guardamos la predicción de cada árbol en forma de dataframe
+) # Guardamos la predicción de cada árbol en forma de dataframe
 
+head(predict_RF)
 
-# Calcular las probabilidades de ser "Si" (Pobre)
-ntrees <- ncol(Default_hat)
-phat.rf <- rowSums(Default_hat == "Si") / ntrees
+# Extraemos las predicciones individuales
+predict_individual <- predict_RF$individual
 
-# Convertir la variable real (observada) a numérica: 1 si es "Si", 0 si es "No"
-actual_values <- as.numeric(test_split$Pobre == "Si")
+# Probabilidad promedio de que la predicción sea "Si"
+phat_rf <- rowMeans(predict_individual == "Si")
 
-# Calcular el AUC
-aucval_rf <- Metrics::auc(
-  actual = actual_values, 
-  predicted = phat.rf
+# Creamos el data frame con id (desde test_split)
+predict_RF_df <- test_split %>%
+  dplyr::select(id) %>%
+  mutate(prob_Si = phat_rf,
+         pobre_lab = ifelse(prob_Si >= 0.3, "Si", "No"))
+
+predict_RF_final <- predict_RF_df %>%
+  mutate(pobre = ifelse(pobre_lab == "Si", 1, 0)) %>%
+  dplyr::select(id, pobre)
+
+head(predict_RF_final)
+
+# Unimos por id para comparar contra la variable real
+eval_rf <- predict_RF_df %>%
+  left_join(test_split %>% dplyr::select(id, Pobre), by = "id")
+
+# Convertimos a factor para que no se queje caret
+eval_rf <- eval_rf %>%
+  mutate(Pobre = factor(Pobre, levels = c("No", "Si")),
+         pobre_lab = factor(pobre_lab, levels = c("No", "Si")))
+
+confusionMatrix(eval_rf$pobre_lab, eval_rf$Pobre, positive = "Si") # con 0,3 el F1 da 0,57
+
+# Resultado para Kaggle Modelo sin CV ----
+set.seed(1410)
+
+train_rf <- train %>% dplyr::select(-id)
+
+# Entrenamos el modelo Random Forest
+model_rf <- randomForest::randomForest(
+  Pobre ~ .,
+  data = train_rf,
+  importance = TRUE,
+  ntree = 500,
+  mtry = 4,
+  nodesize = 1
 )
 
-aucval_rf
+# Mostramos el modelo entrenado
+model_rf
 
-# Predicción
+# Asegúrate de que las columnas coincidan
+setdiff(names(train), names(test))  # Debería devolver solo "Pobre"
 
-names(predict(
-  rf, # usamos objeto randomForest
-  newdata = test, 
-  predict.all = TRUE # para obtener la predicción de cada arbol. 
-))
+# Predecir probabilidad de ser pobre (clase "Si")
+predict_sample_RF <- test %>%
+  mutate(prob_Si = predict(model_rf, newdata = test, type = "prob")[, "Si"],
+         pobre_lab = ifelse(prob_Si >= 0.3, "Si", "No"))
+
+predict_sample_RF <- predict_sample_RF %>%
+  mutate(pobre = ifelse(pobre_lab == "Si", 1, 0)) %>%
+  dplyr::select(id, pobre)
+
+head(predict_sample_RF)
+
+name <- "RF_umbral03.csv" 
+
+write.csv(predict_sample_RF, "C:/Users/samel/OneDrive - Universidad de los andes/IV/Big Data - Machine Learning/GitHub/PS2_SM_MB_MB_DL/script/RF_umbral03.csv", row.names = FALSE)
 
 
 # Modelo con CV ----
@@ -1543,22 +1590,19 @@ cv_RForest <- train(Pobre ~ Nper + edad_jefe + nocupados + nmujeres + nmenores +
 
 cv_RForest
 
-#- Hacemos la predicción
-
+# Hacemos la predicción
 predict_CV_RForest <- test %>%
   mutate(prob_Si = predict(cv_RForest, newdata = test, type = "prob")[, "Si"],
-         pobre_lab = ifelse(prob_Si >= 0.5, "Si", "No")) %>%
-  dplyr::select(id, pobre_lab)
+         pobre_lab = ifelse(prob_Si >= 0.5, "Si", "No"))
 
-head(predict_CV_RForest)
-
-# Convertimos la etiqueta (pobre_lab) a formato binario (1 para "Si", 0 para "No"),
+# Convertimos la etiqueta (pobre_lab) a formato binario (1 para "Si", 0 para "No")
 predict_CV_RForest <- predict_CV_RForest %>% 
   mutate(pobre = ifelse(pobre_lab == "Si", 1, 0)) %>% 
-  dplyr::select(id, pobre_lab)
+  dplyr::select(id, pobre)
 
 head(predict_CV_RForest)
 
 
-name <- "RF_cv.csv"
-write.csv(predict_CV_RForest, name, row.names = FALSE)
+name <- "RF.csv"
+write.csv(predict_CV_RForest, "C:/Users/samel/OneDrive - Universidad de los andes/IV/Big Data - Machine Learning/GitHub/PS2_SM_MB_MB_DL/RF.csv", row.names = FALSE)
+
