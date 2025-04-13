@@ -1576,6 +1576,7 @@ write.csv(predict_sample_RF, "C:/Users/samel/OneDrive - Universidad de los andes
 
 
 # Modelo con CV ----
+set.seed(1410)
 fiveStats <- function(...) {
   c(
     caret::twoClassSummary(...), # Returns ROC, Sensitivity, and Specificity
@@ -1595,9 +1596,65 @@ mtry_grid<-expand.grid(mtry =c(2,4,6,8), # 8 incluye bagging
                        splitrule= 'gini') # tomamos gini como splitrule 
 mtry_grid
 
-cv_RForest <- train(Pobre ~ Nper + edad_jefe + nocupados + nmujeres + nmenores + 
-                      H_Head_mujer +  H_Head_Educ_level, 
-                    data = train, 
+# Probamos con train_split y test_split primero
+cv_RForest_split <- train(Pobre ~ ., 
+                    data = train_split_rf, 
+                    method = "ranger", # llamamos el paquete del metodo a utilizar
+                    trControl = ctrl,
+                    metric="ROC", # metrica a optimizar
+                    tuneGrid = mtry_grid,
+                    ntree=500)
+
+cv_RForest_split
+
+cv_RForest_split$finalModel
+
+# Hacemos la predicción
+predict_CVRF_split <- predict(cv_RForest_split, 
+                   newdata = test_split, 
+                   type="prob" ## class for class prediction
+)
+
+head(predict_CVRF_split)
+
+# Extraemos la probabilidad de que sea "Si"
+phat_CVRF <- predict_CVRF_split[, "Si"]
+
+# Armamos el data frame final con la predicción
+predict_CVRF_final <- test_split %>%
+  dplyr::select(id) %>%
+  mutate(prob_Si = phat_CVRF,
+         pobre_lab = ifelse(prob_Si >= 0.3, "Si", "No"),
+         Pobre_pred = ifelse(pobre_lab == "Si", 1, 0)) %>%
+  dplyr::select(id, Pobre_pred)
+
+head(predict_CVRF_final)
+
+
+# Unimos con la variable real
+eval_cvrf <- test_split %>%
+  dplyr::select(id, Pobre) %>%
+  left_join(predict_CVRF_final, by = "id")
+
+unique(eval_cvrf$Pobre)
+unique(eval_cvrf$Pobre_pred)
+
+
+# Convertimos a factor para la matriz de confusión
+eval_cvrf <- eval_cvrf %>%
+  mutate(
+    Pobre_pred = factor(Pobre_pred, levels = c(0, 1)),
+    Pobre = factor(Pobre, levels = c("No", "Si"), labels = c(0,1))  # Aseguramos que Pobre también sea factor
+  )
+
+# Matriz de confusión
+confusionMatrix(eval_cvrf$Pobre_pred, eval_cvrf$Pobre, positive = "1")
+
+
+# Modelo con CV para Kaggle ----
+set.seed(1410)
+cv_RForest <- train(Pobre ~ ., 
+                    data = train_rf, 
                     method = "ranger", # llamamos el paquete del metodo a utilizar
                     trControl = ctrl,
                     metric="ROC", # metrica a optimizar
@@ -1609,7 +1666,7 @@ cv_RForest
 # Hacemos la predicción
 predict_CV_RForest <- test %>%
   mutate(prob_Si = predict(cv_RForest, newdata = test, type = "prob")[, "Si"],
-         pobre_lab = ifelse(prob_Si >= 0.5, "Si", "No"))
+         pobre_lab = ifelse(prob_Si >= 0.3, "Si", "No"))
 
 # Convertimos la etiqueta (pobre_lab) a formato binario (1 para "Si", 0 para "No")
 predict_CV_RForest <- predict_CV_RForest %>% 
@@ -1618,7 +1675,4 @@ predict_CV_RForest <- predict_CV_RForest %>%
 
 head(predict_CV_RForest)
 
-
-name <- "RF.csv"
-write.csv(predict_CV_RForest, "C:/Users/samel/OneDrive - Universidad de los andes/IV/Big Data - Machine Learning/GitHub/PS2_SM_MB_MB_DL/RF.csv", row.names = FALSE)
-
+write.csv(predict_CV_RForest, "C:/Users/samel/OneDrive - Universidad de los andes/IV/Big Data - Machine Learning/GitHub/PS2_SM_MB_MB_DL/script/RF_CV_ROC_ranger_umbral03.csv", row.names = FALSE)
