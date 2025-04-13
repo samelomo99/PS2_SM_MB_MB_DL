@@ -1381,7 +1381,7 @@ grid_xbgoost <- expand.grid(nrounds = c(250,500),
 grid_xbgoost
 
 set.seed(91519) # Importante definir la semilla antes entrenar
-Xgboost_tree <- train(Pobre~t_dependencia + edad_jefe + Nper + H_Head_Educ_level + nmujeres+ nmenores + nocupados,
+Xgboost_tree <- train(Pobre~ t_dependencia + clima_educ + edad_jefe + nocupados + recibe_ayuda_ + arrienda + ocup_jefe_informal + P5010 + H_Head_mujer + H_Head_Educ_level + n_sin_educacion,
                       data = train, 
                       method = "xgbTree", 
                       trControl = ctrl,
@@ -1391,35 +1391,51 @@ Xgboost_tree <- train(Pobre~t_dependencia + edad_jefe + Nper + H_Head_Educ_level
 )         
 Xgboost_tree
 #ahora predecimos el funcionamiento del modelo
-predictSample <- test   %>% 
+predictSample_Xgboost_tree <- test   %>% 
   mutate(pobre_lab = predict(Xgboost_tree, newdata = test, type = "raw")    ## predicted class labels
   )  %>% dplyr::select(id,pobre_lab)
 
-head(predictSample)
+head(predictSample_Xgboost_tree)
 
 #- Transformamos variable pobre para que cumpla con la especificación de la competencia
-predictSample <- predictSample %>% 
-  mutate(pobre=ifelse(pobre_lab=="Yes",1,0)) %>% 
+predictSample_Xgboost_tree <- predictSample_Xgboost_tree %>% 
+  mutate(pobre=ifelse(pobre_lab=="Si",1,0)) %>% 
   dplyr::select(id,pobre)
-head(predictSample)
+head(predictSample_Xgboost_tree)
 
 #- Formato específico Kaggle 
-lambda_str <- gsub(
-  "\\.", "_", 
-  as.character(round(Xgboost_tree$bestTune$lambda, 4)))
-alpha_str <- gsub("\\.", "_", as.character(Xgboost_tree$bestTune$alpha))
+nrounds_str <- gsub("\\.", "_", as.character(round(Xgboost_tree$bestTune$nrounds, 4)))
+max_depth_str <- gsub("\\.", "_", as.character(Xgboost_tree$bestTune$max_depth))
+eta_str <- gsub("\\.", "_", as.character(Xgboost_tree$bestTune$eta))
+gamma_str <- gsub("\\.", "_", as.character(Xgboost_tree$bestTune$gamma))
+colsample_bytree_str <- gsub("\\.", "_", as.character(Xgboost_tree$bestTune$colsample_bytree))
+min_child_weight_str <- gsub("\\.", "_", as.character(Xgboost_tree$bestTune$min_child_weight))
+subsample_str <- gsub("\\.", "_", as.character(Xgboost_tree$bestTune$subsample))
 
-name<- paste0(
-  "EN_lambda_", lambda_str,
-  "_alpha_" , alpha_str, 
-  ".csv") 
+name <- paste0(
+  "XGBoost_",
+  "nrounds_", nrounds_str, 
+  "_depth_", max_depth_str,
+  "_eta_", eta_str,
+  "_gamma_", gamma_str,
+  "_colsample_", colsample_bytree_str,
+  "_minchild_", min_child_weight_str,
+  "_subsample_", subsample_str,
+  ".csv"
+)
 
-write.csv(predictSample,name, row.names = FALSE)
+write.csv(predictSample_Xgboost_tree,name, row.names = FALSE)
 
 
 #Modelo de prueba final
+#Pobre~ t_dependencia + clima_educ + edad_jefe + nocupados + recibe_ayuda_ + arrienda + salud_jefe + ocup_jefe_informal + P5010 + H_Head_mujer. F!=0.4537
+#Pobre~ t_dependencia + clima_educ + edad_jefe + nocupados + recibe_ayuda_ + arrienda + ocup_jefe_informal + P5010 + H_Head_mujer + H_Head_Educ_level F1=0.4547
+#Pobre~ t_dependencia + clima_educ + edad_jefe + nocupados + recibe_ayuda_ + arrienda + ocup_jefe_informal + P5010 + H_Head_mujer + H_Head_Educ_level + n_sin_educacion F1=0.478
+#Pobre~ t_dependencia + clima_educ + edad_jefe + nocupados + recibe_ayuda_ + arrienda + ocup_jefe_informal + P5010 + H_Head_mujer + H_Head_Educ_level + n_sin_educacion + nmenores F1= 0.4771
+#Pobre~ t_dependencia + clima_educ + edad_jefe + nocupados + recibe_ayuda_ + arrienda + ocup_jefe_informal + P5010 + H_Head_mujer + H_Head_Educ_level + n_sin_educacion + nmujeres F1= 0.4762
+#Pobre~ t_dependencia + clima_educ + edad_jefe + nocupados + recibe_ayuda_ + arrienda + ocup_jefe_informal + P5010 + H_Head_mujer + H_Head_Educ_level + n_sin_educacion + nmujeres + nmenores F1=0.4766
 
-Xgboost_tree_70 <- train(Pobre~t_dependencia + clima_educ + edad_jefe + nocupados + recibe_ayuda_ + arrienda + salud_jefe + ocup_jefe_informal + P5010 + H_Head_mujer,
+Xgboost_tree_70 <- train(Pobre~ t_dependencia + clima_educ + edad_jefe + nocupados + recibe_ayuda_ + arrienda + ocup_jefe_informal + P5010 + H_Head_mujer + H_Head_Educ_level + n_sin_educacion,
                       data = train_70B, 
                       method = "xgbTree", 
                       trControl = ctrl,
@@ -1430,7 +1446,7 @@ Xgboost_tree_70 <- train(Pobre~t_dependencia + clima_educ + edad_jefe + nocupado
 Xgboost_tree_70
 
 train_30B <- train_30B %>%
-  mutate(pobre_prob = predict(gbm_tree_70, newdata = train_30B, type = "raw"))
+  mutate(pobre_prob = predict(Xgboost_tree_70, newdata = train_30B, type = "raw"))
 
 
 ##Generando la matriz de confusion 
