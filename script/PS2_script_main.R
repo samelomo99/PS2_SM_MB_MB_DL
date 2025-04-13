@@ -1659,7 +1659,4 @@ predict_CV_RForest <- predict_CV_RForest %>%
 
 head(predict_CV_RForest)
 
-
-name <- ""
 write.csv(predict_CV_RForest, "C:/Users/samel/OneDrive - Universidad de los andes/IV/Big Data - Machine Learning/GitHub/PS2_SM_MB_MB_DL/script/RF_CV_ROC_ranger_umbral03.csv", row.names = FALSE)
-
