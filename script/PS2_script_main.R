@@ -1413,7 +1413,7 @@ min_child_weight_str <- gsub("\\.", "_", as.character(Xgboost_tree$bestTune$min_
 subsample_str <- gsub("\\.", "_", as.character(Xgboost_tree$bestTune$subsample))
 
 name <- paste0(
-  "XGBoost_",
+  "XTBoost_",
   "nrounds_", nrounds_str, 
   "_depth_", max_depth_str,
   "_eta_", eta_str,
