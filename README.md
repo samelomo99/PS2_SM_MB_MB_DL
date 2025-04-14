@@ -16,7 +16,6 @@ Contiene el documento final en formato PDF del Problem Set 2. Más adelante se p
 Contiene los scripts en R utilizados para el procesamiento de datos, entrenamiento de modelos y generación de resultados:  
 1. **01_preprocesamiento.R**: Limpieza y preparación de los datos, creación de nuevas variables y ajustes a las bases de entrenamiento y prueba.  
 2. **02_modelos.R**: Entrenamiento y validación cruzada de distintos modelos de clasificación (Logit, Elastic Net, CART, Random Forest y XGBoost), junto con selección de hiperparámetros y evaluación de métricas.  
-3. **03_metricas_visuales.R**: Generación de gráficas, cuadros resumen, y matrices de confusión para comparar el desempeño de los modelos.  
 
 ### 📊 `stores`  
 Contiene la base de datos construida a partir de los archivos del DANE (MESEP), con variables consolidadas a nivel hogar:  
