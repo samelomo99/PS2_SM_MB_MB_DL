@@ -1,0 +1,20 @@
+\begin{table}[htbp]
+\centering
+\caption{Comparación de métricas: Logit vs. CART}
+\label{tab:logit_cart}
+\begin{tabular}{lrr}
+\toprule
+\textbf{Métrica} & \textbf{Logit} & \textbf{CART} \\
+\midrule
+Accuracy           & 0.8257 & 0.8118 \\
+Precision          & 0.6452 & 0.5419 \\
+Recall             & 0.2876 & 0.3879 \\
+Specificity        & 0.9604 & 0.9179 \\
+NPV                & 0.8434 & 0.8570 \\
+FPR                & 0.0396 & 0.0821 \\
+FNR                & 0.7124 & 0.6121 \\
+F1                 & 0.3978 & 0.4521 \\
+Balanced\_Accuracy & 0.6240 & 0.6529 \\
+\bottomrule
+\end{tabular}
+\end{table}

@@ -251,38 +251,6 @@ test <-test %>%
                                labels = c("Ninguno", "Preescolar", "Primaria", "Secundaria", "Media", "Universitaria"))
   )
 
-
-# ----------------------------- #
-# ---------- ESTADISTICAS DESCRIPTIVAS ---------- # 
-# ----------------------------- # ----
-library(knitr)
-library(kableExtra)
-
-# Descriptivas para variables numéricas
-tabla_descriptiva <- train %>%
-  dplyr::select(where(is.numeric)) %>%
-  psych::describe() %>%
-  dplyr::select(mean, sd, min, max)
-
-kable(tabla_descriptiva, format = "latex", booktabs = TRUE, digits = 2,
-      caption = "Estadísticas descriptivas de variables numéricas") %>%
-  kable_styling(latex_options = c("hold_position", "striped"))
- # Graficas 
-
-p1 <- ggplot(train, aes(x = arrienda, fill = arrienda)) +
-  geom_bar() +
-  labs(title = "Distribución de hogares que arriendan", x = "¿Arrienda?", y = "Frecuencia") +
-  theme_minimal()
-p1
-
- p2 <- ggplot(train, aes(x = clima_educ)) +
-   geom_histogram(binwidth = 1, fill = "skyblue", color = "white") +
-   labs(title = "Distribución del clima educativo", x = "Clima educativo", y = "Frecuencia") +
-   theme_minimal()
-p2
-
-
-
 # ----------------------------- #
 # ---------- MODELOS ---------- # 
 # ----------------------------- # ----
@@ -1252,19 +1220,8 @@ write.csv(predictSample_CART_kgg, name, row.names = FALSE)
 
 # ---------- MODELO BOOSTING ----------- # ----
 
-##----------------AdaBoots M1----------------------------------------#
+##----------------AdaBoots M1 ----
 #Creando una base train dividida 
-library(dplyr)
-
-datos_filtrados <- train %>%
-  filter(DOMINIO== "BOGOTA")
-
-
-  
-
-
-
-
 library(rsample)
 set.seed(123)  # para que la división sea reproducible
 splitB <- initial_split(train, prop = 0.7)
@@ -1439,7 +1396,7 @@ train_30B <- train_30B %>%
 confusionMatrix(data = train_30B$pobre_prob, reference = train_30B$Pobre, positive = "Si")
 
 
-## -------XGboost
+## -------XGboost ----
 
 p_load(xgboost)
 
@@ -1673,7 +1630,7 @@ cv_RForest_split <- train(Pobre ~ .,
                     data = train_split_rf, 
                     method = "ranger", # llamamos el paquete del metodo a utilizar
                     trControl = ctrl,
-                    metric="ROC", # metrica a optimizar
+                    metric= "ROC", # metrica a optimizar
                     tuneGrid = mtry_grid,
                     ntree=500)
 
@@ -1722,7 +1679,6 @@ eval_cvrf <- eval_cvrf %>%
 # Matriz de confusión
 confusionMatrix(eval_cvrf$Pobre_pred, eval_cvrf$Pobre, positive = "1")
 
-
 # Modelo con CV para Kaggle ----
 set.seed(1410)
 cv_RForest <- train(Pobre ~ ., 
@@ -1748,3 +1704,30 @@ predict_CV_RForest <- predict_CV_RForest %>%
 head(predict_CV_RForest)
 
 write.csv(predict_CV_RForest, "C:/Users/samel/OneDrive - Universidad de los andes/IV/Big Data - Machine Learning/GitHub/PS2_SM_MB_MB_DL/script/RF_CV_ROC_ranger_umbral03.csv", row.names = FALSE)
+
+# Para encontrar la importancia de las variables sin REPETIR TODO EL MODELO DE NUEVO DEBIDO A LA ESPECIFICACIÓN DE TRAIN DE CARET
+library(ranger)
+modelo_importancia <- ranger(Pobre ~ ., 
+                             data = train_rf[sample(nrow(train_rf), 5000), ], 
+                             importance = "impurity", 
+                             num.trees = 100)
+
+modelo_importancia$variable.importance
+
+library(ggplot2)
+# Crear un dataframe con las importancias
+importancia_df <- data.frame(
+  Variable = names(modelo_importancia$variable.importance),
+  Importancia = modelo_importancia$variable.importance
+)
+
+# Ordenar las importancias de mayor a menor
+importancia_df <- importancia_df[order(importancia_df$Importancia, decreasing = TRUE), ]
+
+# Graficar las importancias
+ggplot(importancia_df, aes(x = reorder(Variable, Importancia), y = Importancia)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  coord_flip() +
+  labs(title = "Importancia de Variables - Modelo Random Forest",
+       x = "Variable", y = "Importancia") +
+  theme_minimal()

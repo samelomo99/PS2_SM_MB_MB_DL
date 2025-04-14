@@ -1,0 +1,44 @@
+\begin{table}[H]
+\centering
+\begin{tabular}{|l|p{11cm}|}
+\hline
+\textbf{Variable} & \textbf{Descripción} \\
+\hline
+\textbf{Id} & Representa el código identificador de cada una de las variables. \\
+\hline
+\textbf{Dominio} & Ciudad de residencia; se tomó la del jefe de familia. \\
+\hline
+\textbf{Arrienda} & Indica si el hogar paga renta por el lugar donde vive. \\
+\hline
+\textbf{Pobre} & Toma el valor de 1 si el hogar es pobre según la línea de pobreza de 2018, y 0 de lo contrario. \\
+\hline
+\textbf{p5010} & Número de habitaciones donde duermen los habitantes del hogar. \\
+\hline
+\textbf{Nper} & Número de personas en el hogar. \\
+\hline
+\textbf{salud\_jefe} & "Sí" si el jefe de hogar está afiliado al régimen contributivo, "No" de lo contrario. \\
+\hline
+\textbf{edad\_jefe} & Edad del jefe de hogar. \\
+\hline
+\textbf{t\_dependencia} & Tasa de dependencia. \\
+\hline
+\textbf{nmujeres} & Número de mujeres en el hogar. \\
+\hline
+\textbf{nmenores} & Número de menores de edad en el hogar. \\
+\hline
+\textbf{nocupados} & Número de personas ocupadas en el hogar. \\
+\hline
+\textbf{n\_sin\_educación} & Número de personas sin nivel educativo. \\
+\hline
+\textbf{H\_Head\_mujer} & 1 si el jefe de hogar es mujer, 0 de lo contrario. \\
+\hline
+\textbf{clima\_educ} & Promedio de años de educación de los jefes de hogar. \\
+\hline
+\textbf{ocup\_jefe\_informal} & 1 si el jefe de hogar tiene trabajo informal, 0 de lo contrario. \\
+\hline
+\textbf{recibe\_ayuda} & 1 si algún miembro del hogar recibe ayuda, 0 de lo contrario. \\
+\hline
+\end{tabular}
+\caption{Descripción de variables del hogar}
+\label{tab:variables_hogar}
+\end{table}
