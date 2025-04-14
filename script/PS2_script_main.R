@@ -776,21 +776,21 @@ test_30_copy <- dplyr::select(test_30_copy, -Pobre)
 # Realizamos las predicciones utilizando test_30_copy
 predictSample_logit_prueba <- test_30_copy %>% 
   mutate(pobre_lab = predict(logit_m4_prueba, newdata = test_30_copy, type = "raw")) %>% 
-  select(id, pobre_lab)
+  dplyr::select(id, pobre_lab)
 
 head(predictSample_logit_prueba)
 
 # Convertimos la etiqueta a formato binario
 predictSample_logit_prueba <- predictSample_logit_prueba %>% 
   mutate(pobre = ifelse(pobre_lab == "Si", 1, 0)) %>% 
-  select(id, pobre)
+  dplyr::select(id, pobre)
 
 head(predictSample_logit_prueba)
 
 # Comparación: unimos las predicciones con los valores reales del conjunto test_30
 # Asumimos que test_30 tiene las columnas 'id' y 'Pobre'
 resultados_comparacion <- test_30 %>% 
-  select(id, Pobre) %>%
+  dplyr::select(id, Pobre) %>%
   inner_join(predictSample_logit_prueba, by = "id")
 
 # Visualizamos el resultado de la unión (predicción vs. etiqueta real)
@@ -812,13 +812,42 @@ conf_mat <- confusionMatrix(data = resultados_comparacion$pred,
                             reference = resultados_comparacion$Pobre)
 print(conf_mat)
 
-# calculo manualmente el número de predicciones correctas y la precisión
-total_obs <- nrow(resultados_comparacion)
-pred_correctas <- sum(resultados_comparacion$pred == resultados_comparacion$Pobre)
-precision <- pred_correctas / total_obs
 
-cat("Número de predicciones correctas:", pred_correctas, "\n")
-cat("Precisión del modelo:", round(precision, 4), "\n")
+# Extraer los elementos de la matriz de confusión
+TP <- conf_mat$table["Si", "Si"]
+FP <- conf_mat$table["Si", "No"]
+FN <- conf_mat$table["No", "Si"]
+TN <- conf_mat$table["No", "No"]
+
+# Cálculo manual de las métricas (a partir de la matriz de confusión)
+Accuracy_cm       <- (TP + TN) / sum(conf_mat$table)
+Precision_cm      <- TP / (TP + FP)
+Recall_cm         <- TP / (TP + FN)       # Sensibilidad
+Specificity_cm    <- TN / (TN + FP)
+NPV_cm            <- TN / (TN + FN)
+FPR_cm            <- FP / (FP + TN)
+FNR_cm            <- FN / (FN + TP)
+F1_cm             <- 2 * (Precision_cm * Recall_cm) / (Precision_cm + Recall_cm)
+Balanced_Accuracy <- (Recall_cm + Specificity_cm) / 2
+
+# Crear un data frame con estas métricas
+df_cm_metrics <- data.frame(
+  Accuracy          = Accuracy_cm,
+  Precision         = Precision_cm,
+  Recall            = Recall_cm,
+  Specificity       = Specificity_cm,
+  NPV               = NPV_cm,
+  FPR               = FPR_cm,
+  FNR               = FNR_cm,
+  F1                = F1_cm,
+  Balanced_Accuracy = Balanced_Accuracy
+)
+
+
+# Combinar ambas series de métricas en una tabla final
+
+tabla_final <- cbind(df_logit_m4_prueba, df_cm_metrics)
+print(tabla_final)
 
 ###RESULTADO: Debido al desbalance de clase el resultado no es muy bueno
 
