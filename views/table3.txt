@@ -1,0 +1,13 @@
+\begin{table}[H]
+\centering
+\caption{Matriz de confusión del modelo Random Forest (evaluación en test\_split)}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Predicción / Real} & \textbf{0} & \textbf{1} \\
+\midrule
+\textbf{0} & 30.982 & 3.288 \\
+\textbf{1} & 5.738  & 6.309 \\
+\bottomrule
+\end{tabular}
+\label{tab:confusion_matrix}
+\end{table}

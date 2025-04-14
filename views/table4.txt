@@ -1,0 +1,16 @@
+\begin{table}[H]
+\centering
+\caption{Desempeño del mejor modelo de Random Forest con validación cruzada y conjunto de evaluación}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Métrica} & \textbf{Modelo Principal (test)} & \textbf{Partición (test\_split)} \\
+\midrule
+AUC-ROC       & 0,8426 & 0,8203 \\
+\textit{Sensitivity}  & 0,9603 & 0,6574 \\
+\textit{Specificity} & 0,3575 & 0,8437 \\
+\textit{Accuracy}     & 0,8354 & 0,8051 \\
+\textit{Kappa }        & 0,3880 & 0,4580 \\
+\bottomrule
+\end{tabular}
+\label{tab:rf_resultados}
+\end{table}
