@@ -1,20 +1,21 @@
 \begin{table}[htbp]
 \centering
-\caption{Comparación de métricas: Logit vs. CART}
-\label{tab:logit_cart}
-\begin{tabular}{lrr}
+\caption{Comparación de métricas: Logit vs. CART vs. OLS vs. XGBoost vs. Elastic Net}
+\label{tab:model_comparison}
+\begin{tabular}{lrrrrr}
 \toprule
-\textbf{Métrica} & \textbf{Logit} & \textbf{CART} \\
+\textbf{Métrica} & \textbf{Logit} & \textbf{CART} & \textbf{OLS} & \textbf{XGBoost} & \textbf{Elastic Net} \\
 \midrule
-Accuracy           & 0.8257 & 0.8118 \\
-Precision          & 0.6452 & 0.5419 \\
-Recall             & 0.2876 & 0.3879 \\
-Specificity        & 0.9604 & 0.9179 \\
-NPV                & 0.8434 & 0.8570 \\
-FPR                & 0.0396 & 0.0821 \\
-FNR                & 0.7124 & 0.6121 \\
-F1                 & 0.3978 & 0.4521 \\
-Balanced\_Accuracy & 0.6240 & 0.6529 \\
+Accuracy           & 0.8257 & 0.8118 & 0.8246 & 0.8282 & 0.3343 \\
+Precision          & 0.6452 & 0.5419 & 0.6370 & 0.6635 & 0.6616 \\
+Recall             & 0.2876 & 0.3879 & 0.2897 & 0.3534 & 0.3282 \\
+Specificity        & 0.9604 & 0.9179 & 0.9587 & 0.9529 & 0.3577 \\
+NPV                & 0.8434 & 0.8570 & 0.8436 & 0.8487 & 0.1222 \\
+FPR                & 0.0396 & 0.0821 & 0.0413 & 0.0471 & 0.6423 \\
+FNR                & 0.7124 & 0.6121 & 0.7103 & 0.6466 & 0.6718 \\
+F1                 & 0.3978 & 0.4521 & 0.3987 & 0.4618 & 0.4403 \\
+F1 Kaggle          & 0.3959 & 0.4552 & 0.3742 & 0.4755 & 0.4412 \\
+Balanced\_Accuracy & 0.6240 & 0.6529 & 0.6242 & 0.6531 & 0.3430 \\
 \bottomrule
 \end{tabular}
 \end{table}
