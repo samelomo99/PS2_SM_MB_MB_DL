@@ -1,7 +1,7 @@
 # PS2_SM_MB_MB_DL  
 ## Taller 2 - Problem Set 2: Predicting Poverty  
 
-### Santiago Melo, Miguel Blanco, María Bernal, Diana Lopera  
+### Santiago Melo, Miguel Blanco, Diana Lopera  
 
 ---
 
