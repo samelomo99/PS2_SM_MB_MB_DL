@@ -852,7 +852,7 @@ p_load("rpart")
 p_load("modeldata")
 
 
-# ---------- MODELO DE ÁRBOL -------- # ---- 
+# ---------- ARBOLES-------- # ---- 
 
 #Cargar librerías 
 require("pacman")
@@ -865,7 +865,7 @@ p_load(tidyverse, # tidy-data
        ranger #For random Forest
 )   
 
-# Ejercicio 1: usando especificación del modelo 4------- # ---- 
+# ---------- ejercicio 1: usando especificacion del modelo 4------- # ---- 
 
 #Partimos de la especificacion usada en el modelo 4 del logit
 
@@ -903,7 +903,7 @@ minbucket_tree
 
 prp(minbucket_tree, under = TRUE, branch.lty = 2, yesno = 2, faclen = 0, varlen=15,box.palette = "-RdYlGn")
 
-# Poda del arbol ejercicio 1-------- # ----  
+# ---------- Poda del arbol ejercicio 1-------- # ----  
 
 #usando alpha=0.01
 
@@ -961,7 +961,7 @@ cv_tree_1
 
 cv_tree_1$bestTune$cp
 
-# Árbol final del ejercicio 1-------- # ---- 
+# ---------- arbol final del ejercicio 1-------- 
 
 prp(cv_tree_1$finalModel, under = TRUE, branch.lty = 2, yesno = 2, faclen = 0, varlen=15,box.palette = "-RdYlGn")
 
@@ -1032,191 +1032,70 @@ print(conf_mat_CART)
 # Extraer la tabla de la matriz de confusión
 cm <- conf_mat_CART$table
 
-# Suponemos que:
-#   - cm["Si", "Si"] representa los Verdaderos Positivos (TP)
-#   - cm["Si", "No"] representa los Falsos Positivos (FP)
-#   - cm["No", "Si"] representa los Falsos Negativos (FN)
-#   - cm["No", "No"] representa los Verdaderos Negativos (TN)
-TP <- cm["Si", "Si"]
-FP <- cm["Si", "No"]
-FN <- cm["No", "Si"]
-TN <- cm["No", "No"]
 
-total <- TP + FP + FN + TN  # Total de observaciones
+# Extraemos los elementos de la matriz de confusión para CART
+TP_CART <- conf_mat_CART$table["Si", "Si"]
+FP_CART <- conf_mat_CART$table["Si", "No"]
+FN_CART <- conf_mat_CART$table["No", "Si"]
+TN_CART <- conf_mat_CART$table["No", "No"]
 
-# Calcular las métricas
+# Cálculo manual de las métricas para CART
+Accuracy_CART      <- (TP_CART + TN_CART) / sum(conf_mat_CART$table)
+Precision_CART     <- TP_CART / (TP_CART + FP_CART)
+Recall_CART        <- TP_CART / (TP_CART + FN_CART)
+Specificity_CART   <- TN_CART / (TN_CART + FP_CART)
+NPV_CART           <- TN_CART / (TN_CART + FN_CART)
+FPR_CART           <- FP_CART / (FP_CART + TN_CART)
+FNR_CART           <- FN_CART / (FN_CART + TP_CART)
+F1_CART            <- 2 * (Precision_CART * Recall_CART) / (Precision_CART + Recall_CART)
+Balanced_Accuracy_CART <- (Recall_CART + Specificity_CART) / 2
 
-# Accuracy: Proporción de predicciones correctas
-Accuracy <- (TP + TN) / total
-
-# Recall o Sensitivity: Proporción de verdaderos positivos correctamente identificados.
-Recall <- TP / (TP + FN)
-Sensitivity <- Recall  # Es lo mismo
-
-# Specificity: Proporción de verdaderos negativos correctamente identificados.
-Specificity <- TN / (TN + FP)
-
-# Positive Predictive Value (PPV) y Precision: Proporción de predicciones positivas que son correctas.
-PPV <- TP / (TP + FP)
-Precision <- PPV
-
-# Negative Predictive Value (NPV): Proporción de predicciones negativas que son correctas.
-NPV <- TN / (TN + FN)
-
-# F1 score: Media armónica de Precision y Recall.
-F1 <- 2 * (Precision * Recall) / (Precision + Recall)
-
-# Prevalence: Proporción de casos reales positivos en el conjunto.
-Prevalence <- (TP + FN) / total
-
-# Detection rate: Proporción de verdaderos positivos en relación al total.
-Detection_rate <- TP / total
-
-# Detection prevalence: Proporción de observaciones clasificadas como positivas (TP + FP) en relación al total.
-Detection_prevalence <- (TP + FP) / total
-
-# Balanced accuracy: Promedio de Sensitivity y Specificity.
-Balanced_accuracy <- (Sensitivity + Specificity) / 2
-
-# Crear un data frame con los resultados para visualizarlos mejor
-metrics <- data.frame(
-  Metric = c("Accuracy", "Recall/Sensitivity", "Specificity", 
-             "Positive Predictive Value (Precision)",
-             "Negative Predictive Value", "F1 score", "Prevalence",
-             "Detection rate", "Detection prevalence", "Balanced accuracy"),
-  Value = c(Accuracy, Recall, Specificity, PPV, NPV, F1, Prevalence, Detection_rate, Detection_prevalence, Balanced_accuracy)
+# Generamos un data frame con las métricas de la matriz para CART
+df_cm_metrics_CART <- data.frame(
+  Accuracy          = Accuracy_CART,
+  Precision         = Precision_CART,
+  Recall            = Recall_CART,
+  Specificity       = Specificity_CART,
+  NPV               = NPV_CART,
+  FPR               = FPR_CART,
+  FNR               = FNR_CART,
+  F1                = F1_CART,
+  Balanced_Accuracy = Balanced_Accuracy_CART
 )
+print(df_cm_metrics_CART)
 
-print(metrics)
-
-
-#Partimos de la especificacion usada en el modelo 4 del logit
-
-complex_tree_kgg <- rpart(Pobre~t_dependencia + clima_educ + edad_jefe + nocupados + 
-                            recibe_ayuda_ + arrienda + salud_jefe + ocup_jefe_informal + P5010 + H_Head_mujer, 
-                          data    = train,
-                          method = "class",
-                          cp = 0  # complexity parameter, nuestro alpha
-)
-
-prp(complex_tree_kgg)
-
-# Utilizamos la función prp del paquete rpart.plot para graficar el árbol de decisión
-rpart.plot::prp(
-  complex_tree_kgg,      
-  under = TRUE,      # Mostrar la información debajo de cada nodo
-  branch.lty = 2,    # Tipo de línea para las ramas (2 = línea punteada)
-  yesno = 2,         # Mostrar indicadores de "sí"/"no"
-  faclen = 0,        # Longitud de la abreviación para niveles de factores (0 = sin abreviación)
-  varlen = 10,       # Longitud máxima para abreviar los nombres de variables
-  box.palette = "-RdYlGn"  # Paleta de colores para las hojas 
-)
+# Combinamos las métricas de validación de cv_tree_1 (tuning) con las métricas de la matriz de confusión
+df_cart_results <- cv_tree_1$results
+df_cart_results$model <- "cv_tree_1"
+tabla_CART_final <- cbind(df_cart_results, df_cm_metrics_CART)
+print(tabla_CART_final)
 
 
-minbucket_tree_kgg <- rpart::rpart(
-  Pobre~t_dependencia + clima_educ + edad_jefe + nocupados + 
-    recibe_ayuda_ + arrienda + salud_jefe + ocup_jefe_informal + P5010 + H_Head_mujer, 
-  data = train, 
-  method = "class", 
-  minbucket = 15, # Numero minimo de obs en hojas
-  cp = 0 # alpha para podar el arbol
-) 
-
-minbucket_tree_kgg 
-
-prp(minbucket_tree_kgg, under = TRUE, branch.lty = 2, yesno = 2, faclen = 0, varlen=15,box.palette = "-RdYlGn")
-
-# Poda del arbol para kaggle-------- # ----  
-
-#usando alpha=0.01
-
-arbol_kgg <- rpart(Pobre~t_dependencia + clima_educ + edad_jefe + nocupados + 
-                     recibe_ayuda_ + arrienda + salud_jefe + ocup_jefe_informal + P5010 + H_Head_mujer, 
-                   data    = train,
-                   method = "class" ## define tree for classification
-)
-arbol_kgg$control$cp # alpha
-
-prp(arbol_kgg, under = TRUE, branch.lty = 2, yesno = 2, faclen = 0, varlen=15,box.palette = "-RdYlGn") 
+# Combinamos ambas tablas (al tener las mismas columnas)
+tabla_cm_combinada <- rbind(df_cm_metrics, df_cm_metrics_CART)
+print(tabla_cm_combinada)
 
 
-#usaremos caret maximizando el AUC.
-
-fiveStats <- function(...) {
-  c(
-    twoClassSummary(...),
-    defaultSummary(...)
-  )
+# Asegurarse que ambas tablas tengan la columna "model"
+# Para el modelo Logit (df_cm_metrics) si aún no la agregaste:
+if(!"model" %in% names(df_cm_metrics)) {
+  df_cm_metrics$model <- "Logit"
 }
-## Para usar ROC) (u otras más) para tuning
-#
+df_cm_metrics <- df_cm_metrics %>% dplyr::select(model, everything())
 
-ctrl<- trainControl(method = "cv",
-                    number = 5,
-                    summaryFunction = fiveStats, # nuestra función 
-                    classProbs = TRUE, 
-                    verbose=FALSE,
-                    savePredictions = T)
+# Para el modelo CART (df_cm_metrics_CART) si aún no la tiene:
+if(!"model" %in% names(df_cm_metrics_CART)) {
+  df_cm_metrics_CART$model <- "CART"
+}
+df_cm_metrics_CART <- df_cm_metrics_CART %>% dplyr::select(model, everything())
 
+# Ahora se pueden combinar ambas tablas, ya que tienen las mismas columnas y en el mismo orden
+tabla_cm_combinada <- rbind(df_cm_metrics, df_cm_metrics_CART)
+print(tabla_cm_combinada)
 
-# especificamos la grilla de los alphas
-grid <- expand.grid(cp = seq(0, 0.03, 0.001))
-
-cv_tree_kgg <- train(Pobre~t_dependencia + clima_educ + edad_jefe + nocupados + 
-                       recibe_ayuda_ + arrienda + salud_jefe + ocup_jefe_informal + P5010 + H_Head_mujer,
-                     data = train,
-                     method = "rpart", 
-                     trControl = ctrl, 
-                     tuneGrid = grid, 
-                     metric= "ROC"
-)
-cv_tree_kgg
-
-#Veamos el valor del α que maximiza el AUC
-
-cv_tree_kgg$bestTune$cp
-
-# Árbol final del ejercicio para kaggle-------- # ---- 
-
-prp(cv_tree_kgg$finalModel, under = TRUE, branch.lty = 2, yesno = 2, faclen = 0, varlen=15,box.palette = "-RdYlGn")
-
-
-# Aquí usamos type = "prob" para obtener la probabilidad de cada clase y 
-# convertimos a etiqueta "Si"/"No" usando 0.5 como umbral.
-predictSample_CART_kgg <- test %>% 
-  mutate(pobre_lab = ifelse(
-    predict(cv_tree_kgg, newdata = test, type = "prob")[,2] >= 0.5,
-    "Si",
-    "No"
-  )) %>% 
-  dplyr::select(id, pobre_lab)
-
-# Verificamos las primeras predicciones
-head(predictSample_CART_kgg)
-
-# Convertimos la etiqueta (pobre_lab) a formato binario (1 para "Si", 0 para "No"),
-predictSample_CART_kgg <- predictSample_CART_kgg %>% 
-  mutate(pobre = ifelse(pobre_lab == "Si", 1, 0)) %>% 
-  dplyr::select(id, pobre_lab)
-
-head(predictSample_CART_kgg)
-
-# Convertimos la etiqueta (pobre_lab) a formato binario (1 para "Si", 0 para "No"),
-# igual a como lo hiciste en el ejercicio con logit.
-predictSample_CART_kgg <- predictSample_CART_kgg %>% 
-  mutate(pobre = ifelse(pobre_lab == "Si", 1, 0)) %>% 
-  dplyr::select(id, pobre)
-
-head(predictSample_CART_kgg)
-
-name <- "CART_alpha0.csv"
-write.csv(predictSample_CART_kgg, name, row.names = FALSE)
-
-
-
-
-# Pobre~arrienda + ocup_jefe_informal +H_Head_mujer+n_sin_educacion+nmenores+Nper
-# Pobre~edad_jefe+H_Head_mujer+Nper+ ocup_jefe_informal*H_Head_mujer+ H_Head_Educ_level*H_Head_mujer + clima_educ + arrienda +p5010
+write.csv(tabla_cm_combinada, file = "tabla_cm_combinada.csv", row.names = FALSE)
+write.csv(df_logit_m4_prueba, file = "df_logit_m4_prueba.csv", row.names = FALSE)
+write.csv(df_cart_results, file = "df_cart_result.csv", row.names = FALSE)
 
 # ---------- MODELO BOOSTING ----------- # ----
 
