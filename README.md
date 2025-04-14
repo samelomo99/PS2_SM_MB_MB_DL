@@ -32,7 +32,7 @@ Almacena los cuadros y gráficas en orden según su aparición en el documento p
 
 ## 📌 Resumen del ejercicio  
 
-Este trabajo tuvo como objetivo desarrollar un modelo predictivo que permitiera identificar hogares en situación de pobreza a partir de información sociodemográfica y estructural. Utilizando técnicas de machine learning sobre datos del DANE y MESEP, se evaluó el rendimiento de distintos algoritmos, incluyendo regresión logística, Elastic Net, CART y Random Forest.  
+Este trabajo tuvo como objetivo desarrollar un modelo predictivo que permitiera identificar hogares en situación de pobreza a partir de información sociodemográfica y estructural. Utilizando técnicas de machine learning sobre datos del DANE y MESE, se evaluó el rendimiento de distintos algoritmos, incluyendo regresión logística, Elastic Net, CART y Random Forest.  
 
 La metodología incluyó validación cruzada, ajuste de hiperparámetros, comparación de métricas y análisis de importancia de variables. El modelo con mejor desempeño fue el Random Forest, el cual superó a las alternativas tradicionales tanto en sensibilidad como en AUC-ROC.  
 
