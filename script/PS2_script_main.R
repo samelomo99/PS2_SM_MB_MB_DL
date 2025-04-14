@@ -251,6 +251,38 @@ test <-test %>%
                                labels = c("Ninguno", "Preescolar", "Primaria", "Secundaria", "Media", "Universitaria"))
   )
 
+
+# ----------------------------- #
+# ---------- ESTADISTICAS DESCRIPTIVAS ---------- # 
+# ----------------------------- # ----
+library(knitr)
+library(kableExtra)
+
+# Descriptivas para variables numéricas
+tabla_descriptiva <- train %>%
+  dplyr::select(where(is.numeric)) %>%
+  psych::describe() %>%
+  dplyr::select(mean, sd, min, max)
+
+kable(tabla_descriptiva, format = "latex", booktabs = TRUE, digits = 2,
+      caption = "Estadísticas descriptivas de variables numéricas") %>%
+  kable_styling(latex_options = c("hold_position", "striped"))
+ # Graficas 
+
+p1 <- ggplot(train, aes(x = arrienda, fill = arrienda)) +
+  geom_bar() +
+  labs(title = "Distribución de hogares que arriendan", x = "¿Arrienda?", y = "Frecuencia") +
+  theme_minimal()
+p1
+
+ p2 <- ggplot(train, aes(x = clima_educ)) +
+   geom_histogram(binwidth = 1, fill = "skyblue", color = "white") +
+   labs(title = "Distribución del clima educativo", x = "Clima educativo", y = "Frecuencia") +
+   theme_minimal()
+p2
+
+
+
 # ----------------------------- #
 # ---------- MODELOS ---------- # 
 # ----------------------------- # ----
@@ -1193,6 +1225,17 @@ write.csv(predictSample_CART_kgg, name, row.names = FALSE)
 
 ##----------------AdaBoots M1----------------------------------------#
 #Creando una base train dividida 
+library(dplyr)
+
+datos_filtrados <- train %>%
+  filter(DOMINIO== "BOGOTA")
+
+
+  
+
+
+
+
 library(rsample)
 set.seed(123)  # para que la división sea reproducible
 splitB <- initial_split(train, prop = 0.7)
